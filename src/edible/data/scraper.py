@@ -41,9 +41,9 @@ from edible.data.schemas import ImageMetadata, LabelConfidence, Species
 
 logger = logging.getLogger(__name__)
 
-# iNaturalist place ID for Texas (US state).
-# Confirmed via: GET /v1/places/autocomplete?q=Texas → id=59
-TEXAS_PLACE_ID = 59
+# iNaturalist place ID for Texas (US state, place_type=8).
+# Confirmed via: GET /v1/places/autocomplete?q=Texas&geo=true → id=18
+TEXAS_PLACE_ID = 18
 
 _INAT_BASE = "https://api.inaturalist.org/v1"
 _PHOTO_SIZE = "medium"  # options: square, small, medium, large, original
