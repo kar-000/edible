@@ -63,7 +63,7 @@ edible/
 
 ## Geographic Scope — Phase 1
 - Texas statewide; Central Texas data density expected from iNaturalist
-- iNaturalist Texas place ID: **10` (to verify)`**
+- iNaturalist Texas place ID: **59**
 
 ## Species — v1 (12 species)
 6 edible, 6 toxic — see `data/species.json`
