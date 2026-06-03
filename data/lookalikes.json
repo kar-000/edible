@@ -1,0 +1,105 @@
+{
+  "version": "1.0",
+  "scope": "Texas Phase 1",
+  "notes": "Look-alike pairs assembled from Texas AgriLife Extension, USDA PLANTS, and standard field guides. All high-severity pairs surface a warning card at inference time regardless of confidence score. This file must be maintained manually — no single database maps these relationships.",
+  "pairs": [
+    {
+      "id": "elderberry_pokeweed_fruiting",
+      "edible_species_id": "sambucus_canadensis",
+      "lookalike_species_id": "phytolacca_americana",
+      "edible_common": "American Elderberry",
+      "lookalike_common": "Pokeweed",
+      "confusion_stage": "fruiting",
+      "severity": "high",
+      "warning_message": "POKEWEED WARNING: Pokeweed berries are toxic and can be fatal. All parts of the plant — especially the root — are poisonous. If in doubt, do not eat.",
+      "distinguishing_features": [
+        "STEM: Elderberry has woody, gray-brown stems with white lenticels. Pokeweed has thick, bright magenta/hot-pink herbaceous stems when mature.",
+        "LEAVES: Elderberry has compound leaves with 5-11 distinct leaflets. Pokeweed has simple (undivided) oval leaves, often very large (10+ inches).",
+        "BERRY CLUSTER SHAPE: Elderberry berries hang in flat-topped umbrella-shaped clusters. Pokeweed berries grow in elongated grape-like racemes on a vivid pink-red stem.",
+        "PLANT SIZE/FORM: Elderberry is a multi-stemmed shrub/small tree. Pokeweed is a large herbaceous plant with a massive white taproot — dies back each winter.",
+        "ROOT: Elderberry has fibrous woody roots. Pokeweed has a distinctive massive white taproot — extremely toxic."
+      ],
+      "source": "Texas AgriLife Extension; USDA PLANTS Database; Poison Control Center TX",
+      "poison_control": "1-800-222-1222"
+    },
+    {
+      "id": "elderberry_water_hemlock_foliage",
+      "edible_species_id": "sambucus_canadensis",
+      "lookalike_species_id": "cicuta_maculata",
+      "edible_common": "American Elderberry",
+      "lookalike_common": "Water Hemlock",
+      "confusion_stage": "flowering_foliage",
+      "severity": "high",
+      "lookalike_note": "Water Hemlock (Cicuta maculata) is NOT in the v1 classification species list but is included here for warning purposes only. It is one of the most violently toxic plants in North America.",
+      "warning_message": "WATER HEMLOCK WARNING: Water hemlock is considered the most violently toxic plant in North America. Misidentification is potentially fatal within hours. Do not eat any elderberry-like plant unless you are 100% certain of identification from ALL features.",
+      "distinguishing_features": [
+        "STEM: Water hemlock stems are hollow and chambered (cut stem reveals air chambers). Elderberry stems have a pithy white center, not hollow chambers.",
+        "STEM MARKINGS: Water hemlock often has purple-streaked or mottled stems. Elderberry stems are gray-brown and woody.",
+        "LEAVES: Both have compound leaves, but water hemlock leaflets have veins running to the notches between teeth (not to the tips). Elderberry leaflet veins run to tooth tips.",
+        "HABITAT: Water hemlock grows in or near standing water/wet ditches. Elderberry prefers moist areas but is not aquatic.",
+        "ODOR: Water hemlock has a distinctive parsnip-like or carrot-like smell when crushed. Elderberry has a more pungent earthy smell.",
+        "ROOT: Water hemlock has distinctive chambered tuberous roots filled with toxic cicutoxin resin. Do not taste-test roots."
+      ],
+      "source": "Texas AgriLife Extension; Kingsbury 'Poisonous Plants of the United States and Canada'; ASPCA Poison Control",
+      "poison_control": "1-800-222-1222"
+    },
+    {
+      "id": "mustang_grape_moonseed_fruiting",
+      "edible_species_id": "vitis_mustangensis",
+      "lookalike_species_id": "menispermum_canadense",
+      "edible_common": "Mustang Grape",
+      "lookalike_common": "Moonseed",
+      "confusion_stage": "fruiting",
+      "severity": "high",
+      "warning_message": "MOONSEED WARNING: Moonseed berries are toxic. They closely resemble wild grapes but contain a single crescent-shaped seed and lack grape tendrils. Do not eat any wild grape-like berry without confirming all features.",
+      "distinguishing_features": [
+        "SEED: Grape berries contain 2-6 round seeds. Moonseed berries contain a single crescent/moon-shaped seed (highly distinctive — cut the berry open).",
+        "TENDRILS: Mustang grape has forked (2-branched) tendrils. Moonseed has either no tendrils or simple unforked tendrils.",
+        "LEAF ATTACHMENT: Moonseed leaves are peltate — the stem attaches inside the leaf margin, not at the edge. Grape leaf stems attach at the leaf edge.",
+        "BERRY CLUSTERS: Grape clusters are dense and tight. Moonseed clusters are looser and less compact.",
+        "LEAF SHAPE: Grape leaves are lobed with pointed tips. Moonseed leaves are more shield-shaped with a shallower lobe."
+      ],
+      "source": "Texas AgriLife Extension; BONAP; Peterson Field Guide to Medicinal Plants",
+      "poison_control": "1-800-222-1222"
+    },
+    {
+      "id": "dewberry_nightshade_fruiting",
+      "edible_species_id": "rubus_trivialis",
+      "lookalike_species_id": "solanum_nigrum",
+      "edible_common": "Dewberry",
+      "lookalike_common": "Black Nightshade",
+      "confusion_stage": "fruiting",
+      "severity": "medium",
+      "warning_message": "NIGHTSHADE WARNING: Black nightshade berries contain solanine and are toxic, especially when unripe. Confusion is most likely when dewberry canes are not yet visible and only berries are observed.",
+      "distinguishing_features": [
+        "PLANT FORM: Dewberry has trailing thorny canes. Nightshade is a smooth upright herbaceous plant with no thorns.",
+        "LEAVES: Dewberry has compound leaves with 3-5 leaflets. Nightshade has simple undivided leaves with wavy or toothed margins.",
+        "BERRY STRUCTURE: Dewberry has aggregate drupelets (like a tiny blackberry). Nightshade has smooth simple berries in small clusters.",
+        "BERRY COLOR WHEN RIPE: Both turn black when ripe. Key: dewberry berries are aggregate and dull; nightshade berries are smooth, shiny, and in loose clusters.",
+        "FLOWERS: Dewberry has white 5-petaled rose-family flowers. Nightshade has small star-shaped white flowers with a yellow anther cone."
+      ],
+      "source": "Texas AgriLife Extension; Lady Bird Johnson Wildflower Center",
+      "poison_control": "1-800-222-1222"
+    },
+    {
+      "id": "beautyberry_privet_fruiting",
+      "edible_species_id": "callicarpa_americana",
+      "lookalike_species_id": "ligustrum_spp",
+      "edible_common": "Beautyberry",
+      "lookalike_common": "Privet (Ligustrum)",
+      "confusion_stage": "fruiting",
+      "severity": "medium",
+      "lookalike_note": "Ligustrum spp. refers to several introduced privet species common across Texas (L. japonicum, L. lucidum, L. sinense). All have toxic berries.",
+      "warning_message": "PRIVET WARNING: Privet berries are toxic. The vivid stem-encircling berry clusters of beautyberry are highly distinctive — if the berries are at branch tips rather than encircling the stem, do not eat them.",
+      "distinguishing_features": [
+        "BERRY ARRANGEMENT: Beautyberry berries grow in tight whorls that ENCIRCLE THE STEM at leaf nodes (this is unmistakable). Privet berries grow in elongated clusters at BRANCH TIPS.",
+        "BERRY COLOR: Beautyberry is vivid magenta/purple. Privet berries are dark purple-black, less vivid.",
+        "LEAVES: Beautyberry leaves are large, soft, slightly hairy, and oppositely arranged. Privet leaves are smaller, glossy, and smooth.",
+        "PLANT FORM: Beautyberry is a loose native shrub. Privet (especially Japanese privet) is often dense and formal-looking — commonly used as a hedge.",
+        "SMELL: Beautyberry leaves have a distinctive aromatic smell when crushed."
+      ],
+      "source": "Texas AgriLife Extension; USDA PLANTS; Lady Bird Johnson Wildflower Center",
+      "poison_control": "1-800-222-1222"
+    }
+  ]
+}
