@@ -71,6 +71,35 @@ edible/
 ## Edibility Taxonomy
 `edible_raw` | `edible_cooked` | `toxic` | `uncertain`
 
+## Inference Pipeline (Addendum A — v1.1)
+Three-layer validation. Layers 1 & 2 are v1 scope. Layer 3 is Phase 4.
+
+```
+image + GPS
+↓
+[Layer 1: coarse plant/not-plant gate]  →  reject  →  "Not a plant I can identify"
+↓ passes
+[species classifier + confidence score]
+↓
+[Layer 2: confidence floor <75%]        →  reject  →  "Not sure — do not eat it"
+↓ passes
+[location re-ranking + look-alike warnings]
+↓
+result: species, edibility, confidence %, warnings
+```
+
+**Gate fail-safe rule**: when uncertain, REJECT — never pass through. A false rejection
+(annoying the user) is always safer than a false acceptance (bad image reaching the edibility model).
+
+| Layer | Capability | Phase | Implementation |
+|---|---|---|---|
+| 1 | Coarse plant/not-plant gate | v1 | ImageNet top-class category check or CLIP |
+| 2 | Confidence floor + uncertain class | v1 | 75% threshold already in v1.0 |
+| 3 | Energy / Mahalanobis / negative class | Phase 4 | Deferred |
+
+**Note**: raw softmax confidence is unreliable for true OOD inputs — a model can output 95%
+confidence on a lizard photo. Layer 1 must run BEFORE the species classifier, not after.
+
 ## Key Risk: False Positives on Toxic Species
 Weight loss functions and evaluation to penalize toxic→edible misclassification heavily.
 Never suppress out-of-range predictions — only down-rank them.
