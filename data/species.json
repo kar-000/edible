@@ -1,0 +1,271 @@
+{
+  "version": "1.0",
+  "scope": "Texas statewide (Phase 1)",
+  "notes": "12-species starting list: 6 edible, 6 toxic. Covers most common Central Texas encounters and their critical look-alike pairs. inat_taxon_id values require verification against iNaturalist taxonomy.",
+  "species": [
+    {
+      "id": "sambucus_canadensis",
+      "common_name": "American Elderberry",
+      "scientific_name": "Sambucus canadensis",
+      "family": "Adoxaceae",
+      "edibility": "edible_cooked",
+      "is_target_class": true,
+      "inat_taxon_id": 55882,
+      "inat_taxon_id_verified": false,
+      "priority_reason": "Common, high-value, dangerous look-alikes",
+      "distinguishing_features": [
+        "Compound leaves with 5-11 leaflets",
+        "Flat-topped white flower clusters (cymes)",
+        "Small dark purple/black berries in dense flat clusters",
+        "Woody stems, gray-brown bark with white lenticels",
+        "Opposite branching pattern"
+      ],
+      "habitat": "Moist areas, stream banks, woodland edges",
+      "season_fruiting": "June-September",
+      "texas_counties_confirmed": true,
+      "notes": "Berries safe cooked; raw berries can cause nausea. Leaves, bark, roots toxic."
+    },
+    {
+      "id": "vitis_mustangensis",
+      "common_name": "Mustang Grape",
+      "scientific_name": "Vitis mustangensis",
+      "family": "Vitaceae",
+      "edibility": "edible_raw",
+      "is_target_class": true,
+      "inat_taxon_id": 61875,
+      "inat_taxon_id_verified": false,
+      "priority_reason": "Texas native, very common",
+      "distinguishing_features": [
+        "Forked tendrils (2-branched)",
+        "Deeply lobed or heart-shaped leaves, white-woolly underside",
+        "Dark purple to black berries, 2-4 seeds per berry",
+        "Tight clustered bunches on woody vine",
+        "Tart, thick-skinned berries"
+      ],
+      "habitat": "Woods, thickets, fence rows, roadsides",
+      "season_fruiting": "July-September",
+      "texas_counties_confirmed": true,
+      "notes": "Very astringent raw — often used for jelly/wine. Sap can irritate skin."
+    },
+    {
+      "id": "rubus_trivialis",
+      "common_name": "Dewberry",
+      "scientific_name": "Rubus trivialis",
+      "family": "Rosaceae",
+      "edibility": "edible_raw",
+      "is_target_class": true,
+      "inat_taxon_id": 55861,
+      "inat_taxon_id_verified": false,
+      "priority_reason": "Common across Texas",
+      "distinguishing_features": [
+        "Trailing (not upright) thorny canes",
+        "Compound leaves with 3-5 leaflets",
+        "White 5-petaled flowers",
+        "Aggregate drupelets (like a blackberry), black when ripe",
+        "Grows low to ground — trailing habit distinguishes from blackberry"
+      ],
+      "habitat": "Open fields, roadsides, woodland edges, disturbed areas",
+      "season_fruiting": "March-May (earlier than most berries)",
+      "texas_counties_confirmed": true,
+      "notes": "One of earliest spring fruits in Central Texas."
+    },
+    {
+      "id": "callicarpa_americana",
+      "common_name": "Beautyberry",
+      "scientific_name": "Callicarpa americana",
+      "family": "Lamiaceae",
+      "edibility": "edible_cooked",
+      "is_target_class": true,
+      "inat_taxon_id": 53849,
+      "inat_taxon_id_verified": false,
+      "priority_reason": "Distinctive, widely foraged",
+      "distinguishing_features": [
+        "Vivid magenta/purple berry clusters tightly encircling the stem at leaf nodes",
+        "Large opposite leaves, soft and slightly fuzzy",
+        "Berries arranged in tight whorls around stem (not at branch tips)",
+        "Shrub form, 3-8 feet tall",
+        "White/pink flowers before berry stage"
+      ],
+      "habitat": "Woodland understory, moist to dry woods",
+      "season_fruiting": "August-November",
+      "texas_counties_confirmed": true,
+      "notes": "Berries bland raw, better as jelly. Primary distinguishing: stem-encircling berry arrangement."
+    },
+    {
+      "id": "mahonia_trifoliolata",
+      "common_name": "Agarita",
+      "scientific_name": "Mahonia trifoliolata",
+      "family": "Berberidaceae",
+      "edibility": "edible_raw",
+      "is_target_class": true,
+      "inat_taxon_id": 77658,
+      "inat_taxon_id_verified": false,
+      "priority_reason": "Hill Country staple",
+      "distinguishing_features": [
+        "Holly-like trifoliate leaves with sharp spiny lobes",
+        "Bright red berries (unique color for Hill Country)",
+        "Evergreen shrub 3-6 feet tall",
+        "Yellow flowers in late winter/early spring",
+        "Berries ripen in spring — unusual early season"
+      ],
+      "habitat": "Rocky limestone hillsides, cedar-oak woodland, caliche soils",
+      "season_fruiting": "April-June",
+      "texas_counties_confirmed": true,
+      "notes": "Very tart, high in vitamin C. Classic Hill Country foraging target. No dangerous look-alikes."
+    },
+    {
+      "id": "celtis_laevigata",
+      "common_name": "Hackberry",
+      "scientific_name": "Celtis laevigata",
+      "family": "Cannabaceae",
+      "edibility": "edible_raw",
+      "is_target_class": true,
+      "inat_taxon_id": 58756,
+      "inat_taxon_id_verified": false,
+      "priority_reason": "Extremely common statewide",
+      "distinguishing_features": [
+        "Small orange-red to dark purple single drupes on long thin stalks",
+        "Berries single, not clustered",
+        "Distinctive warty/corky gray bark",
+        "Asymmetric leaf base (hallmark feature)",
+        "Berries have single hard seed, thin sweet flesh"
+      ],
+      "habitat": "Stream banks, bottomlands, urban areas, fence rows",
+      "season_fruiting": "September-November",
+      "texas_counties_confirmed": true,
+      "notes": "Very common urban/suburban tree in Central Texas. No dangerous look-alikes."
+    },
+    {
+      "id": "phytolacca_americana",
+      "common_name": "Pokeweed",
+      "scientific_name": "Phytolacca americana",
+      "family": "Phytolaccaceae",
+      "edibility": "toxic",
+      "is_target_class": true,
+      "inat_taxon_id": 60218,
+      "inat_taxon_id_verified": false,
+      "priority_reason": "Elderberry look-alike — high risk",
+      "distinguishing_features": [
+        "Thick magenta/hot-pink stems when mature (key identifier)",
+        "Simple large oval leaves (up to 10+ inches) — NOT compound",
+        "Berries in elongated grape-like racemes on vivid pink-red stems",
+        "Large herbaceous plant (4-10 feet), dies back in winter",
+        "Massive white taproot (toxic)"
+      ],
+      "habitat": "Disturbed areas, field edges, roadsides",
+      "season_fruiting": "August-October",
+      "texas_counties_confirmed": true,
+      "notes": "ALL parts toxic, especially roots and unripe berries. Ripe berries less toxic but still dangerous. Causes severe GI distress and potentially fatal respiratory depression."
+    },
+    {
+      "id": "menispermum_canadense",
+      "common_name": "Moonseed",
+      "scientific_name": "Menispermum canadense",
+      "family": "Menispermaceae",
+      "edibility": "toxic",
+      "is_target_class": true,
+      "inat_taxon_id": 56700,
+      "inat_taxon_id_verified": false,
+      "priority_reason": "Mustang grape look-alike — high risk",
+      "distinguishing_features": [
+        "Single crescent/moon-shaped seed (cross-section looks like crescent — key identifier)",
+        "Simple (not compound) tendrils or no tendrils",
+        "Peltate leaf attachment (stem attaches inside leaf margin, not at edge)",
+        "Berries in loose clusters, less dense than grape",
+        "Leaves less lobed than grape, more shield-shaped"
+      ],
+      "habitat": "Moist woods, stream banks, thickets",
+      "season_fruiting": "August-October",
+      "texas_counties_confirmed": true,
+      "notes": "Fatal look-alike for wild grape. Seed shape is definitive but requires cutting berry open. Do not rely on seed check alone in the field."
+    },
+    {
+      "id": "solanum_nigrum",
+      "common_name": "Black Nightshade",
+      "scientific_name": "Solanum nigrum",
+      "family": "Solanaceae",
+      "edibility": "toxic",
+      "is_target_class": true,
+      "inat_taxon_id": 55847,
+      "inat_taxon_id_verified": false,
+      "priority_reason": "Common, easily confused with dewberry at young stage",
+      "distinguishing_features": [
+        "Simple (not compound) leaves with wavy margins",
+        "Small star-shaped white flowers with yellow anthers (Solanum pattern)",
+        "Berries in small umbel-like clusters, turn black when ripe",
+        "Non-thorny smooth herbaceous stems",
+        "Much smaller plant than dewberry, no trailing canes"
+      ],
+      "habitat": "Disturbed areas, gardens, waste ground, crop fields",
+      "season_fruiting": "Year-round in Texas (warm months peak)",
+      "texas_counties_confirmed": true,
+      "notes": "Toxic — solanine. Ripe black berries less toxic than unripe green berries. Some cultures cook ripe berries but this is NOT recommended without expert guidance."
+    },
+    {
+      "id": "ilex_decidua",
+      "common_name": "Possumhaw Holly",
+      "scientific_name": "Ilex decidua",
+      "family": "Aquifoliaceae",
+      "edibility": "toxic",
+      "is_target_class": true,
+      "inat_taxon_id": 56282,
+      "inat_taxon_id_verified": false,
+      "priority_reason": "Attractive berries often misidentified as edible",
+      "distinguishing_features": [
+        "Deciduous holly — berries persist on bare branches after leaf drop (distinctive)",
+        "Bright red-orange berries clustered along stems",
+        "Alternate leaves with serrated margins",
+        "Berries do NOT have calyx star on bottom (unlike persimmon)",
+        "Shrub to small tree form"
+      ],
+      "habitat": "Moist woods, stream banks, thickets",
+      "season_fruiting": "October-February (persistent through winter)",
+      "texas_counties_confirmed": true,
+      "notes": "Berries toxic — ilicin. Often confused for a food source due to bright color and winter persistence."
+    },
+    {
+      "id": "ilex_vomitoria",
+      "common_name": "Yaupon Holly",
+      "scientific_name": "Ilex vomitoria",
+      "family": "Aquifoliaceae",
+      "edibility": "toxic",
+      "is_target_class": true,
+      "inat_taxon_id": 56283,
+      "inat_taxon_id_verified": false,
+      "priority_reason": "Very common in Central Texas",
+      "distinguishing_features": [
+        "Evergreen shrub/small tree with small oval serrated leaves",
+        "Bright red berries in dense clusters along stems",
+        "Leaves smaller and more rounded than possumhaw",
+        "Very common landscape and native plant in Texas",
+        "Leaves contain caffeine (leaves historically used for tea — NOT berries)"
+      ],
+      "habitat": "Woodland understory, urban landscapes, coastal to central Texas",
+      "season_fruiting": "October-March (persistent)",
+      "texas_counties_confirmed": true,
+      "notes": "Berries toxic. Note: leaves contain caffeine and were historically used as a tea by Indigenous peoples — ONLY leaves, NEVER berries."
+    },
+    {
+      "id": "melia_azedarach",
+      "common_name": "Chinaberry",
+      "scientific_name": "Melia azedarach",
+      "family": "Meliaceae",
+      "edibility": "toxic",
+      "is_target_class": true,
+      "inat_taxon_id": 63712,
+      "inat_taxon_id_verified": false,
+      "priority_reason": "Widespread invasive, children at risk",
+      "distinguishing_features": [
+        "Bipinnately compound leaves (large, feathery — twice divided)",
+        "Yellow-tan berries in loose drooping clusters, persist after leaf drop",
+        "Berries wrinkle and turn yellowish-tan when ripe",
+        "Strong smell when berries are crushed",
+        "Medium to large tree form — invasive across Texas"
+      ],
+      "habitat": "Urban areas, disturbed land, roadsides, stream banks",
+      "season_fruiting": "September-February (persistent)",
+      "texas_counties_confirmed": true,
+      "notes": "Toxic — tetranortriterpene neurotoxins. 6-8 berries potentially fatal to a child. Rapid acting. Common urban tree — high accidental exposure risk."
+    }
+  ]
+}

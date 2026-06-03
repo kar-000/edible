@@ -209,6 +209,19 @@ tempCodeRunnerFile.py
 # PyPI configuration file
 .pypirc
 
+# Edible project — local data (images can be gigabytes)
+data/images/
+data/raw/
+
+# Edible — model artifacts
+models/
+*.pt
+*.pth
+*.onnx
+
+# Label Studio
+label_studio_data/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
