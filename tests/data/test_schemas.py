@@ -18,13 +18,9 @@ import pytest
 from pydantic import ValidationError
 
 from edible.data.schemas import (
-    ConfusionStage,
     Edibility,
     ImageMetadata,
-    LabelConfidence,
-    LookAlikeDatabase,
     LookAlikePair,
-    Severity,
     Species,
     SpeciesDatabase,
     load_lookalike_db,
@@ -146,7 +142,7 @@ class TestToxicSpeciesSafety:
     def test_elderberry_has_high_severity_lookalike(self):
         db = load_lookalike_db(LOOKALIKES_FILE)
         assert db.has_high_severity_pair("sambucus_canadensis"), (
-            "SAFETY FAILURE: American elderberry must have at least one high-severity look-alike pair"
+            "SAFETY FAILURE: American elderberry must have at least one high-severity pair"
         )
 
     def test_mustang_grape_has_high_severity_lookalike(self):
@@ -159,7 +155,7 @@ class TestToxicSpeciesSafety:
         db = load_lookalike_db(LOOKALIKES_FILE)
         for pair in db.pairs:
             assert len(pair.distinguishing_features) >= 3, (
-                f"Pair '{pair.id}' has fewer than 3 distinguishing features — insufficient for safety"
+                f"Pair '{pair.id}' has fewer than 3 distinguishing features — unsafe"
             )
 
 

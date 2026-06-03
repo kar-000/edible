@@ -21,11 +21,8 @@ from edible.data.pipeline import (
     GateResult,
     InferenceResult,
     LookAlikeWarning,
-    RejectionReason,
-    SpeciesPrediction,
 )
 from edible.data.schemas import Edibility, LookAlikePair, Severity
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -334,7 +331,7 @@ class TestDoNotEatBanner:
         assert not r.requires_do_not_eat_banner
 
     def test_uncertain_edibility_does_not_trigger_banner_by_edibility_alone(self):
-        # uncertain edibility above floor — banner is controlled by confidence, not edibility=uncertain
+        # uncertain edibility above floor — banner is controlled by confidence, not edibility
         r = InferenceResult.model_validate(_accepted_result(
             edibility="uncertain", confidence=0.80
         ))
