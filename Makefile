@@ -1,7 +1,7 @@
 # Edible project — convenience targets
 # Run all commands via: make <target>
 
-.PHONY: test lint fmt check install install-dev clean
+.PHONY: test lint fmt check install install-dev scrape clean
 
 # PYTHONPATH must be cleared to avoid Python 3.9 system package pollution
 PYTHON_ENV = unset PYTHONPATH && export PATH="$(HOME)/.local/bin:$(PATH)"
@@ -23,6 +23,9 @@ lint:
 
 fmt:
 	$(PYTHON_ENV) && uv run ruff format src/ tests/
+
+scrape:
+	$(PYTHON_ENV) && uv run python scripts/scrape.py $(ARGS)
 
 check: lint test
 
