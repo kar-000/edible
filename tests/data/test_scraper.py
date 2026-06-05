@@ -194,6 +194,14 @@ class TestInatClientObservations:
         assert str(TEXAS_PLACE_ID) in rsps_lib.calls[0].request.url
 
     @rsps_lib.activate
+    def test_place_id_none_omits_place_filter(self):
+        rsps_lib.add(rsps_lib.GET, INAT_OBS_URL,
+                     json=_inat_response([_make_observation(1)]), status=200)
+        client = InatClient(rate_limit_s=0)
+        list(client.iter_observations("Menispermum canadense", place_id=None, max_results=1))
+        assert "place_id" not in rsps_lib.calls[0].request.url
+
+    @rsps_lib.activate
     def test_http_error_raises(self):
         rsps_lib.add(rsps_lib.GET, INAT_OBS_URL, status=429)
         client = InatClient(rate_limit_s=0)

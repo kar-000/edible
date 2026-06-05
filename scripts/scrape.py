@@ -64,6 +64,19 @@ def main() -> None:
         action="store_true",
         help="Print what would be scraped without downloading anything",
     )
+    place_group = parser.add_mutually_exclusive_group()
+    place_group.add_argument(
+        "--global",
+        dest="global_scrape",
+        action="store_true",
+        help="Scrape globally (no place filter). Useful for Texas-rare species like moonseed.",
+    )
+    place_group.add_argument(
+        "--place-id",
+        type=int,
+        default=None,
+        help="iNaturalist place ID to filter by (default: 18 = Texas). Use --global to remove filter.",
+    )
     args = parser.parse_args()
 
     if not os.environ.get("INAT_API_TOKEN"):
@@ -90,6 +103,17 @@ def main() -> None:
         IMAGES_DIR,
     )
 
+    if args.global_scrape:
+        place_id = None
+        logger.info("Place filter: GLOBAL (no restriction)")
+    elif args.place_id is not None:
+        place_id = args.place_id
+        logger.info("Place filter: place_id=%d", place_id)
+    else:
+        from edible.data.scraper import TEXAS_PLACE_ID
+        place_id = TEXAS_PLACE_ID
+        logger.info("Place filter: Texas (place_id=%d)", place_id)
+
     if args.dry_run:
         logger.info("DRY RUN — no downloads will occur")
         for s in species_list:
@@ -105,7 +129,7 @@ def main() -> None:
     summaries: list[ScrapeSummary] = []
     for species in species_list:
         logger.info("── Scraping: %s (%s)", species.common_name, species.scientific_name)
-        summary = scraper.scrape(species, max_images=args.max_images)
+        summary = scraper.scrape(species, max_images=args.max_images, place_id=place_id)
         summaries.append(summary)
         logger.info(
             "   downloaded=%d  skipped=%d  failed=%d  success_rate=%.0f%%",
