@@ -8,12 +8,15 @@ metadata correctness for toxic vs edible species.
 
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 import responses as rsps_lib
+from PIL import Image
 
 from edible.data.geocoding import GeoResult, NominatimGeocoder
 from edible.data.range_check import UsdaPlantsClient
@@ -33,12 +36,9 @@ PHOTO_URL = "https://inaturalist-open-data.s3.amazonaws.com/photos/111/medium.jp
 
 def _make_sharp_jpeg() -> bytes:
     """Return a real sharp JPEG (checkerboard) that passes the blur gate."""
-    import io as _io
-    import numpy as _np
-    from PIL import Image as _Image
-    arr = (_np.indices((64, 64)).sum(axis=0) % 2 * 255).astype(_np.uint8)
-    buf = _io.BytesIO()
-    _Image.fromarray(arr, mode="L").convert("RGB").save(buf, format="JPEG", quality=95)
+    arr = (np.indices((64, 64)).sum(axis=0) % 2 * 255).astype(np.uint8)
+    buf = io.BytesIO()
+    Image.fromarray(arr, mode="L").convert("RGB").save(buf, format="JPEG", quality=95)
     return buf.getvalue()
 
 
