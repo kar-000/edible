@@ -102,13 +102,15 @@ class InatClient:
     def iter_observations(
         self,
         taxon_name: str,
-        place_id: int = TEXAS_PLACE_ID,
+        place_id: Optional[int] = TEXAS_PLACE_ID,
         quality_grade: str = "research",
         max_results: int = 1000,
     ) -> Iterator[dict]:
         """
         Yield raw observation dicts, paginating until max_results or exhausted.
         Only yields observations that have at least one photo.
+
+        Pass ``place_id=None`` to scrape globally (no geographic restriction).
         """
         yielded = 0
         page = 1
@@ -116,18 +118,20 @@ class InatClient:
         while yielded < max_results:
             self._throttle()
             per_page = min(_MAX_PER_PAGE, max_results - yielded)
+            params: dict = {
+                "taxon_name": taxon_name,
+                "quality_grade": quality_grade,
+                "photos": "true",
+                "per_page": per_page,
+                "page": page,
+                "order": "desc",
+                "order_by": "created_at",
+            }
+            if place_id is not None:
+                params["place_id"] = place_id
             resp = self._session.get(
                 f"{_INAT_BASE}/observations",
-                params={
-                    "taxon_name": taxon_name,
-                    "place_id": place_id,
-                    "quality_grade": quality_grade,
-                    "photos": "true",
-                    "per_page": per_page,
-                    "page": page,
-                    "order": "desc",
-                    "order_by": "created_at",
-                },
+                params=params,
                 timeout=30,
             )
             resp.raise_for_status()
@@ -216,7 +220,7 @@ class SpeciesScraper:
         self,
         species: Species,
         max_images: int = 1000,
-        place_id: int = TEXAS_PLACE_ID,
+        place_id: Optional[int] = TEXAS_PLACE_ID,
     ) -> ScrapeSummary:
         """
         Scrape up to max_images for the given species.

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "scope": "Texas statewide (Phase 1)",
-  "notes": "12-species starting list: 6 edible, 6 toxic. Covers most common Central Texas encounters and their critical look-alike pairs. inat_taxon_id values require verification against iNaturalist taxonomy.",
+  "notes": "12-species starting list: 6 edible, 6 toxic. Covers most common Central Texas encounters and their critical look-alike pairs. inat_taxon_id values verified via iNaturalist API (GET /v1/taxa/{id}) 2026-06-04. Note: mahonia_trifoliolata is stored under its synonym Berberis trifoliolata in iNaturalist (taxon 273862).",
   "species": [
     {
       "id": "sambucus_canadensis",
@@ -10,8 +10,8 @@
       "family": "Adoxaceae",
       "edibility": "edible_cooked",
       "is_target_class": true,
-      "inat_taxon_id": 55882,
-      "inat_taxon_id_verified": false,
+      "inat_taxon_id": 84300,
+      "inat_taxon_id_verified": true,
       "priority_reason": "Common, high-value, dangerous look-alikes",
       "distinguishing_features": [
         "Compound leaves with 5-11 leaflets",
@@ -32,8 +32,8 @@
       "family": "Vitaceae",
       "edibility": "edible_raw",
       "is_target_class": true,
-      "inat_taxon_id": 61875,
-      "inat_taxon_id_verified": false,
+      "inat_taxon_id": 142776,
+      "inat_taxon_id_verified": true,
       "priority_reason": "Texas native, very common",
       "distinguishing_features": [
         "Forked tendrils (2-branched)",
@@ -54,8 +54,8 @@
       "family": "Rosaceae",
       "edibility": "edible_raw",
       "is_target_class": true,
-      "inat_taxon_id": 55861,
-      "inat_taxon_id_verified": false,
+      "inat_taxon_id": 69714,
+      "inat_taxon_id_verified": true,
       "priority_reason": "Common across Texas",
       "distinguishing_features": [
         "Trailing (not upright) thorny canes",
@@ -76,8 +76,8 @@
       "family": "Lamiaceae",
       "edibility": "edible_cooked",
       "is_target_class": true,
-      "inat_taxon_id": 53849,
-      "inat_taxon_id_verified": false,
+      "inat_taxon_id": 49193,
+      "inat_taxon_id_verified": true,
       "priority_reason": "Distinctive, widely foraged",
       "distinguishing_features": [
         "Vivid magenta/purple berry clusters tightly encircling the stem at leaf nodes",
@@ -98,8 +98,8 @@
       "family": "Berberidaceae",
       "edibility": "edible_raw",
       "is_target_class": true,
-      "inat_taxon_id": 77658,
-      "inat_taxon_id_verified": false,
+      "inat_taxon_id": 273862,
+      "inat_taxon_id_verified": true,
       "priority_reason": "Hill Country staple",
       "distinguishing_features": [
         "Holly-like trifoliate leaves with sharp spiny lobes",
@@ -111,7 +111,7 @@
       "habitat": "Rocky limestone hillsides, cedar-oak woodland, caliche soils",
       "season_fruiting": "April-June",
       "texas_counties_confirmed": true,
-      "notes": "Very tart, high in vitamin C. Classic Hill Country foraging target. No dangerous look-alikes."
+      "notes": "Very tart, high in vitamin C. Classic Hill Country foraging target. No dangerous look-alikes. iNaturalist indexes this species as Berberis trifoliolata (taxonomic synonym)."
     },
     {
       "id": "celtis_laevigata",
@@ -120,8 +120,8 @@
       "family": "Cannabaceae",
       "edibility": "edible_raw",
       "is_target_class": true,
-      "inat_taxon_id": 58756,
-      "inat_taxon_id_verified": false,
+      "inat_taxon_id": 81792,
+      "inat_taxon_id_verified": true,
       "priority_reason": "Extremely common statewide",
       "distinguishing_features": [
         "Small orange-red to dark purple single drupes on long thin stalks",
@@ -142,8 +142,8 @@
       "family": "Phytolaccaceae",
       "edibility": "toxic",
       "is_target_class": true,
-      "inat_taxon_id": 60218,
-      "inat_taxon_id_verified": false,
+      "inat_taxon_id": 48599,
+      "inat_taxon_id_verified": true,
       "priority_reason": "Elderberry look-alike — high risk",
       "distinguishing_features": [
         "Thick magenta/hot-pink stems when mature (key identifier)",
@@ -164,8 +164,8 @@
       "family": "Menispermaceae",
       "edibility": "toxic",
       "is_target_class": true,
-      "inat_taxon_id": 56700,
-      "inat_taxon_id_verified": false,
+      "inat_taxon_id": 130900,
+      "inat_taxon_id_verified": true,
       "priority_reason": "Mustang grape look-alike — high risk",
       "distinguishing_features": [
         "Single crescent/moon-shaped seed (cross-section looks like crescent — key identifier)",
@@ -177,7 +177,7 @@
       "habitat": "Moist woods, stream banks, thickets",
       "season_fruiting": "August-October",
       "texas_counties_confirmed": true,
-      "notes": "Fatal look-alike for wild grape. Seed shape is definitive but requires cutting berry open. Do not rely on seed check alone in the field."
+      "notes": "Fatal look-alike for wild grape. Seed shape is definitive but requires cutting berry open. Do not rely on seed check alone in the field. Texas-rare (23 iNat obs) — scrape globally for training data."
     },
     {
       "id": "solanum_nigrum",
@@ -186,8 +186,8 @@
       "family": "Solanaceae",
       "edibility": "toxic",
       "is_target_class": true,
-      "inat_taxon_id": 55847,
-      "inat_taxon_id_verified": false,
+      "inat_taxon_id": 79141,
+      "inat_taxon_id_verified": true,
       "priority_reason": "Common, easily confused with dewberry at young stage",
       "distinguishing_features": [
         "Simple (not compound) leaves with wavy margins",
@@ -208,8 +208,8 @@
       "family": "Aquifoliaceae",
       "edibility": "toxic",
       "is_target_class": true,
-      "inat_taxon_id": 56282,
-      "inat_taxon_id_verified": false,
+      "inat_taxon_id": 120006,
+      "inat_taxon_id_verified": true,
       "priority_reason": "Attractive berries often misidentified as edible",
       "distinguishing_features": [
         "Deciduous holly — berries persist on bare branches after leaf drop (distinctive)",
@@ -230,8 +230,8 @@
       "family": "Aquifoliaceae",
       "edibility": "toxic",
       "is_target_class": true,
-      "inat_taxon_id": 56283,
-      "inat_taxon_id_verified": false,
+      "inat_taxon_id": 119955,
+      "inat_taxon_id_verified": true,
       "priority_reason": "Very common in Central Texas",
       "distinguishing_features": [
         "Evergreen shrub/small tree with small oval serrated leaves",
@@ -252,8 +252,8 @@
       "family": "Meliaceae",
       "edibility": "toxic",
       "is_target_class": true,
-      "inat_taxon_id": 63712,
-      "inat_taxon_id_verified": false,
+      "inat_taxon_id": 53720,
+      "inat_taxon_id_verified": true,
       "priority_reason": "Widespread invasive, children at risk",
       "distinguishing_features": [
         "Bipinnately compound leaves (large, feathery — twice divided)",
