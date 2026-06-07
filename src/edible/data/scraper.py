@@ -36,6 +36,12 @@ from typing import Iterator, Optional
 import requests
 
 from edible.data.geocoding import USER_AGENT, NominatimGeocoder
+from edible.data.image_quality import (
+    DEFAULT_BLUR_THRESHOLD,
+    INAT_FRUITING_VALUE_ID,
+    INAT_PHENOLOGY_TERM_ID,
+    is_sharp,
+)
 from edible.data.range_check import UsdaPlantsClient
 from edible.data.schemas import ImageMetadata, LabelConfidence, Species
 
@@ -59,6 +65,8 @@ class ScrapeSummary:
     requested: int
     downloaded: int
     skipped_existing: int
+    skipped_blurry: int
+    skipped_not_fruiting: int
     failed: int
     errors: list[str] = field(default_factory=list)
 
@@ -105,12 +113,15 @@ class InatClient:
         place_id: Optional[int] = TEXAS_PLACE_ID,
         quality_grade: str = "research",
         max_results: int = 1000,
+        fruiting_only: bool = False,
     ) -> Iterator[dict]:
         """
         Yield raw observation dicts, paginating until max_results or exhausted.
         Only yields observations that have at least one photo.
 
         Pass ``place_id=None`` to scrape globally (no geographic restriction).
+        Pass ``fruiting_only=True`` to restrict to observations annotated with
+        "Fruits or Seeds" (iNat term_id=12, value_id=14).
         """
         yielded = 0
         page = 1
@@ -129,6 +140,9 @@ class InatClient:
             }
             if place_id is not None:
                 params["place_id"] = place_id
+            if fruiting_only:
+                params["term_id"] = INAT_PHENOLOGY_TERM_ID
+                params["term_value_id"] = INAT_FRUITING_VALUE_ID
             resp = self._session.get(
                 f"{_INAT_BASE}/observations",
                 params=params,
@@ -221,10 +235,21 @@ class SpeciesScraper:
         species: Species,
         max_images: int = 1000,
         place_id: Optional[int] = TEXAS_PLACE_ID,
+        fruiting_only: bool = False,
+        blur_threshold: float = DEFAULT_BLUR_THRESHOLD,
     ) -> ScrapeSummary:
         """
         Scrape up to max_images for the given species.
         Skips images that already exist on disk (resume-safe).
+
+        Parameters
+        ----------
+        fruiting_only:
+            If True, restrict to iNat observations annotated "Fruits or Seeds".
+            Eliminates stem/leaf-only images that cause look-alike confusion.
+        blur_threshold:
+            Laplacian variance floor. Images below this score are rejected.
+            Set to 0.0 to disable blur filtering.
         """
         species_dir = self._output_dir / species.id
         species_dir.mkdir(parents=True, exist_ok=True)
@@ -235,14 +260,20 @@ class SpeciesScraper:
             requested=max_images,
             downloaded=0,
             skipped_existing=0,
+            skipped_blurry=0,
+            skipped_not_fruiting=0,
             failed=0,
         )
 
         for obs in self._client.iter_observations(
             taxon_name=species.scientific_name,
             place_id=place_id,
-            max_results=max_images,
+            max_results=max_images * 3,  # over-fetch to account for quality rejections
+            fruiting_only=fruiting_only,
         ):
+            if summary.downloaded >= max_images:
+                break
+
             obs_id = obs["id"]
             photos = obs.get("photos", [])
             if not photos:
@@ -262,8 +293,13 @@ class SpeciesScraper:
             try:
                 url = _photo_url(photo.get("url", ""))
                 img_bytes = self._client.download_bytes(url)
-                img_path.write_bytes(img_bytes)
 
+                if blur_threshold > 0 and not is_sharp(img_bytes, blur_threshold):
+                    summary.skipped_blurry += 1
+                    logger.debug("[%s] Rejected blurry: obs %s", species.id, obs_id)
+                    continue
+
+                img_path.write_bytes(img_bytes)
                 metadata = self._build_metadata(obs, species)
                 meta_path.write_text(
                     json.dumps(metadata.model_dump(mode="json"), indent=2),
@@ -281,7 +317,6 @@ class SpeciesScraper:
                 msg = f"obs {obs_id}: {exc}"
                 summary.errors.append(msg)
                 logger.warning("Failed %s", msg)
-                # Clean up partial files
                 img_path.unlink(missing_ok=True)
                 meta_path.unlink(missing_ok=True)
 

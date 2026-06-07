@@ -2,14 +2,23 @@
 Scrape iNaturalist observations for all (or specific) target species.
 
 Usage:
-    # Scrape all 12 species, 1000 images each
+    # Scrape all 12 species, 1000 images each (Texas only, default)
     uv run python scripts/scrape.py
 
-    # Scrape a single species with a smaller limit (good for first test)
-    uv run python scripts/scrape.py --species sambucus_canadensis --max-images 20
+    # Scrape a single species globally (useful for Texas-rare species)
+    uv run python scripts/scrape.py --species menispermum_canadense --global
 
-    # Scrape all species with a custom limit
-    uv run python scripts/scrape.py --max-images 500
+    # Scrape only fruiting observations (recommended for training data quality)
+    uv run python scripts/scrape.py --fruiting-only
+
+    # Combine: global + fruiting only + blur filter
+    uv run python scripts/scrape.py --global --fruiting-only
+
+    # Adjust blur rejection threshold (default 100; lower = more permissive)
+    uv run python scripts/scrape.py --blur-threshold 50
+
+    # Disable blur filtering entirely
+    uv run python scripts/scrape.py --blur-threshold 0
 
     # Dry run — show what would be scraped without downloading
     uv run python scripts/scrape.py --dry-run
@@ -31,8 +40,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from edible.data.geocoding import NominatimGeocoder
+from edible.data.image_quality import DEFAULT_BLUR_THRESHOLD
 from edible.data.range_check import UsdaPlantsClient
-from edible.data.scraper import InatClient, SpeciesScraper, ScrapeSummary
+from edible.data.scraper import TEXAS_PLACE_ID, InatClient, ScrapeSummary, SpeciesScraper
 from edible.data.schemas import load_species_db
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -64,6 +74,23 @@ def main() -> None:
         action="store_true",
         help="Print what would be scraped without downloading anything",
     )
+    parser.add_argument(
+        "--fruiting-only",
+        action="store_true",
+        help=(
+            "Only download observations annotated 'Fruits or Seeds' on iNaturalist. "
+            "Eliminates stem/leaf-only images that cause look-alike confusion."
+        ),
+    )
+    parser.add_argument(
+        "--blur-threshold",
+        type=float,
+        default=DEFAULT_BLUR_THRESHOLD,
+        help=(
+            f"Laplacian variance floor for blur rejection (default: {DEFAULT_BLUR_THRESHOLD}). "
+            "Set to 0 to disable."
+        ),
+    )
     place_group = parser.add_mutually_exclusive_group()
     place_group.add_argument(
         "--global",
@@ -75,7 +102,7 @@ def main() -> None:
         "--place-id",
         type=int,
         default=None,
-        help="iNaturalist place ID to filter by (default: 18 = Texas). Use --global to remove filter.",
+        help=f"iNaturalist place ID to filter by (default: {TEXAS_PLACE_ID} = Texas).",
     )
     args = parser.parse_args()
 
@@ -84,6 +111,23 @@ def main() -> None:
             "INAT_API_TOKEN not set — running unauthenticated (rate-limited to ~60 req/min). "
             "Get your token at https://www.inaturalist.org/users/api_token"
         )
+
+    if args.global_scrape:
+        place_id = None
+        logger.info("Place filter: GLOBAL (no restriction)")
+    elif args.place_id is not None:
+        place_id = args.place_id
+        logger.info("Place filter: place_id=%d", place_id)
+    else:
+        place_id = TEXAS_PLACE_ID
+        logger.info("Place filter: Texas (place_id=%d)", place_id)
+
+    if args.fruiting_only:
+        logger.info("Phenology filter: Fruits or Seeds only")
+    if args.blur_threshold > 0:
+        logger.info("Blur threshold: %.1f (Laplacian variance)", args.blur_threshold)
+    else:
+        logger.info("Blur filtering: disabled")
 
     db = load_species_db(SPECIES_FILE)
 
@@ -103,22 +147,14 @@ def main() -> None:
         IMAGES_DIR,
     )
 
-    if args.global_scrape:
-        place_id = None
-        logger.info("Place filter: GLOBAL (no restriction)")
-    elif args.place_id is not None:
-        place_id = args.place_id
-        logger.info("Place filter: place_id=%d", place_id)
-    else:
-        from edible.data.scraper import TEXAS_PLACE_ID
-        place_id = TEXAS_PLACE_ID
-        logger.info("Place filter: Texas (place_id=%d)", place_id)
-
     if args.dry_run:
         logger.info("DRY RUN — no downloads will occur")
         for s in species_list:
             existing = list((IMAGES_DIR / s.id).glob("*.jpg")) if (IMAGES_DIR / s.id).exists() else []
-            logger.info("  %-35s  edibility=%-15s  existing=%d", s.scientific_name, s.edibility.value, len(existing))
+            logger.info(
+                "  %-35s  edibility=%-15s  existing=%d",
+                s.scientific_name, s.edibility.value, len(existing),
+            )
         return
 
     client = InatClient.from_env()
@@ -129,29 +165,40 @@ def main() -> None:
     summaries: list[ScrapeSummary] = []
     for species in species_list:
         logger.info("── Scraping: %s (%s)", species.common_name, species.scientific_name)
-        summary = scraper.scrape(species, max_images=args.max_images, place_id=place_id)
+        summary = scraper.scrape(
+            species,
+            max_images=args.max_images,
+            place_id=place_id,
+            fruiting_only=args.fruiting_only,
+            blur_threshold=args.blur_threshold,
+        )
         summaries.append(summary)
         logger.info(
-            "   downloaded=%d  skipped=%d  failed=%d  success_rate=%.0f%%",
+            "   downloaded=%d  blurry=%d  not_fruiting=%d  skipped=%d  failed=%d",
             summary.downloaded,
+            summary.skipped_blurry,
+            summary.skipped_not_fruiting,
             summary.skipped_existing,
             summary.failed,
-            summary.success_rate * 100,
         )
         if summary.errors:
             for err in summary.errors[:5]:
                 logger.warning("   error: %s", err)
 
     # Final summary table
-    print("\n" + "─" * 65)
-    print(f"{'Species':<35} {'Downloaded':>10} {'Skipped':>8} {'Failed':>7}")
-    print("─" * 65)
+    print("\n" + "─" * 80)
+    print(f"{'Species':<35} {'DL':>6} {'Blurry':>7} {'!Fruit':>7} {'Skip':>6} {'Fail':>6}")
+    print("─" * 80)
     for s in summaries:
-        print(f"{s.species_id:<35} {s.downloaded:>10} {s.skipped_existing:>8} {s.failed:>7}")
-    print("─" * 65)
+        print(
+            f"{s.species_id:<35} {s.downloaded:>6} {s.skipped_blurry:>7} "
+            f"{s.skipped_not_fruiting:>7} {s.skipped_existing:>6} {s.failed:>6}"
+        )
+    print("─" * 80)
     total_dl = sum(s.downloaded for s in summaries)
+    total_blur = sum(s.skipped_blurry for s in summaries)
     total_fail = sum(s.failed for s in summaries)
-    print(f"{'TOTAL':<35} {total_dl:>10} {'':>8} {total_fail:>7}")
+    print(f"{'TOTAL':<35} {total_dl:>6} {total_blur:>7} {'':>7} {'':>6} {total_fail:>6}")
 
     if total_fail > 0:
         sys.exit(1)
