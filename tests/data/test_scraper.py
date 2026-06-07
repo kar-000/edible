@@ -31,6 +31,17 @@ INAT_OBS_URL = "https://api.inaturalist.org/v1/observations"
 PHOTO_URL = "https://inaturalist-open-data.s3.amazonaws.com/photos/111/medium.jpg"
 
 
+def _make_sharp_jpeg() -> bytes:
+    """Return a real sharp JPEG (checkerboard) that passes the blur gate."""
+    import io as _io
+    import numpy as _np
+    from PIL import Image as _Image
+    arr = (_np.indices((64, 64)).sum(axis=0) % 2 * 255).astype(_np.uint8)
+    buf = _io.BytesIO()
+    _Image.fromarray(arr, mode="L").convert("RGB").save(buf, format="JPEG", quality=95)
+    return buf.getvalue()
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -202,6 +213,25 @@ class TestInatClientObservations:
         assert "place_id" not in rsps_lib.calls[0].request.url
 
     @rsps_lib.activate
+    def test_fruiting_only_adds_term_params(self):
+        rsps_lib.add(rsps_lib.GET, INAT_OBS_URL,
+                     json=_inat_response([_make_observation(1)]), status=200)
+        client = InatClient(rate_limit_s=0)
+        list(client.iter_observations("Rubus trivialis", fruiting_only=True, max_results=1))
+        url = rsps_lib.calls[0].request.url
+        assert "term_id=12" in url
+        assert "term_value_id=14" in url
+
+    @rsps_lib.activate
+    def test_fruiting_only_false_omits_term_params(self):
+        rsps_lib.add(rsps_lib.GET, INAT_OBS_URL,
+                     json=_inat_response([_make_observation(1)]), status=200)
+        client = InatClient(rate_limit_s=0)
+        list(client.iter_observations("Rubus trivialis", fruiting_only=False, max_results=1))
+        url = rsps_lib.calls[0].request.url
+        assert "term_id" not in url
+
+    @rsps_lib.activate
     def test_http_error_raises(self):
         rsps_lib.add(rsps_lib.GET, INAT_OBS_URL, status=429)
         client = InatClient(rate_limit_s=0)
@@ -244,7 +274,7 @@ class TestSpeciesScraper:
         obs = _make_observation(obs_id=9001, photo_id=111)
         client = MagicMock(spec=InatClient)
         client.iter_observations.return_value = iter([obs])
-        client.download_bytes.return_value = b"fake-jpeg-bytes"
+        client.download_bytes.return_value = _make_sharp_jpeg()
 
         scraper = self._make_scraper(tmp_path, inat_client=client)
         species = _make_species()
@@ -262,7 +292,7 @@ class TestSpeciesScraper:
         obs = _make_observation(obs_id=9001, photo_id=111)
         client = MagicMock(spec=InatClient)
         client.iter_observations.return_value = iter([obs])
-        client.download_bytes.return_value = b"fake-jpeg-bytes"
+        client.download_bytes.return_value = _make_sharp_jpeg()
 
         scraper = self._make_scraper(tmp_path, inat_client=client)
         scraper.scrape(_make_species(), max_images=1)
@@ -279,7 +309,7 @@ class TestSpeciesScraper:
         obs = _make_observation(obs_id=9002, photo_id=222)
         client = MagicMock(spec=InatClient)
         client.iter_observations.return_value = iter([obs])
-        client.download_bytes.return_value = b"fake-jpeg-bytes"
+        client.download_bytes.return_value = _make_sharp_jpeg()
 
         scraper = self._make_scraper(tmp_path, inat_client=client)
         species = Species.model_validate({
@@ -345,7 +375,7 @@ class TestSpeciesScraper:
         obs = _make_observation(obs_id=9006, photo_id=666)
         client = MagicMock(spec=InatClient)
         client.iter_observations.return_value = iter([obs])
-        client.download_bytes.return_value = b"fake-jpeg-bytes"
+        client.download_bytes.return_value = _make_sharp_jpeg()
 
         bad_geocoder = MagicMock(spec=NominatimGeocoder)
         bad_geocoder.reverse_geocode.side_effect = RuntimeError("nominatim down")
@@ -361,7 +391,7 @@ class TestSpeciesScraper:
         obs = _make_observation(obs_id=9007, photo_id=777)
         client = MagicMock(spec=InatClient)
         client.iter_observations.return_value = iter([obs])
-        client.download_bytes.return_value = b"fake-jpeg-bytes"
+        client.download_bytes.return_value = _make_sharp_jpeg()
 
         bad_range = MagicMock(spec=UsdaPlantsClient)
         bad_range.is_present_in_state.side_effect = RuntimeError("usda down")
@@ -375,7 +405,7 @@ class TestSpeciesScraper:
         obs = {**_make_observation(obs_id=9008, photo_id=888), "location": None}
         client = MagicMock(spec=InatClient)
         client.iter_observations.return_value = iter([obs])
-        client.download_bytes.return_value = b"fake-jpeg-bytes"
+        client.download_bytes.return_value = _make_sharp_jpeg()
 
         scraper = self._make_scraper(tmp_path, inat_client=client)
         scraper.scrape(_make_species(), max_images=1)
@@ -385,11 +415,92 @@ class TestSpeciesScraper:
         assert meta["lng"] is None
 
     def test_success_rate_calculation(self):
-        s = ScrapeSummary("test", "Test sp", 10, downloaded=8, skipped_existing=0, failed=2)
+        s = ScrapeSummary(
+            "test", "Test sp", 10,
+            downloaded=8, skipped_existing=0, skipped_blurry=0,
+            skipped_not_fruiting=0, failed=2,
+        )
         assert s.success_rate == pytest.approx(0.8)
 
+    def test_blurry_image_skipped(self, tmp_path):
+        import io as _io
+
+        from PIL import Image as _Image
+        # Uniform grey → near-zero Laplacian variance → blurry
+        buf = _io.BytesIO()
+        _Image.new("RGB", (64, 64), color=(128, 128, 128)).save(buf, format="JPEG")
+        blurry_bytes = buf.getvalue()
+
+        obs = _make_observation(obs_id=9900, photo_id=900)
+        client = MagicMock(spec=InatClient)
+        client.iter_observations.return_value = iter([obs])
+        client.download_bytes.return_value = blurry_bytes
+
+        scraper = self._make_scraper(tmp_path, inat_client=client)
+        summary = scraper.scrape(_make_species(), max_images=1, blur_threshold=100.0)
+
+        assert summary.skipped_blurry == 1
+        assert summary.downloaded == 0
+        assert not (tmp_path / "rubus_trivialis" / "9900_900.jpg").exists()
+
+    def test_sharp_image_not_rejected(self, tmp_path):
+        import io as _io
+
+        import numpy as _np
+        from PIL import Image as _Image
+        # Checkerboard → high Laplacian variance → sharp
+        arr = (_np.indices((64, 64)).sum(axis=0) % 2 * 255).astype(_np.uint8)
+        img = _Image.fromarray(arr, mode="L").convert("RGB")
+        buf = _io.BytesIO()
+        img.save(buf, format="JPEG", quality=95)
+
+        obs = _make_observation(obs_id=9901, photo_id=901)
+        client = MagicMock(spec=InatClient)
+        client.iter_observations.return_value = iter([obs])
+        client.download_bytes.return_value = buf.getvalue()
+
+        scraper = self._make_scraper(tmp_path, inat_client=client)
+        summary = scraper.scrape(_make_species(), max_images=1, blur_threshold=100.0)
+
+        assert summary.skipped_blurry == 0
+        assert summary.downloaded == 1
+
+    def test_blur_threshold_zero_disables_filtering(self, tmp_path):
+        import io as _io
+
+        from PIL import Image as _Image
+        buf = _io.BytesIO()
+        _Image.new("RGB", (64, 64), color=(128, 128, 128)).save(buf, format="JPEG")
+
+        obs = _make_observation(obs_id=9902, photo_id=902)
+        client = MagicMock(spec=InatClient)
+        client.iter_observations.return_value = iter([obs])
+        client.download_bytes.return_value = buf.getvalue()
+
+        scraper = self._make_scraper(tmp_path, inat_client=client)
+        summary = scraper.scrape(_make_species(), max_images=1, blur_threshold=0.0)
+
+        assert summary.skipped_blurry == 0
+        assert summary.downloaded == 1
+
+    def test_fruiting_only_forwarded_to_iter_observations(self, tmp_path):
+        obs = _make_observation(obs_id=9903, photo_id=903)
+        client = MagicMock(spec=InatClient)
+        client.iter_observations.return_value = iter([obs])
+        client.download_bytes.return_value = _make_sharp_jpeg()
+
+        scraper = self._make_scraper(tmp_path, inat_client=client)
+        scraper.scrape(_make_species(), max_images=1, fruiting_only=True, blur_threshold=0.0)
+
+        call_kwargs = client.iter_observations.call_args
+        assert call_kwargs.kwargs.get("fruiting_only") is True
+
     def test_success_rate_zero_when_no_attempts(self):
-        s = ScrapeSummary("test", "Test sp", 0, downloaded=0, skipped_existing=0, failed=0)
+        s = ScrapeSummary(
+            "test", "Test sp", 0,
+            downloaded=0, skipped_existing=0, skipped_blurry=0,
+            skipped_not_fruiting=0, failed=0,
+        )
         assert s.success_rate == 0.0
 
 
