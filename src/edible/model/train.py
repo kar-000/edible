@@ -149,11 +149,16 @@ def train(cfg: TrainConfig) -> list[EpochResult]:
     model = build_classifier(cfg.classifier_config).to(device)
 
     class_weights = train_ds.class_weights().to(device)
+    cc = cfg.classifier_config
     criterion = build_loss(
         class_weights=class_weights,
         toxic_indices=toxic_indices,
-        toxic_multiplier=cfg.classifier_config.toxic_loss_multiplier or 2.0,
+        toxic_multiplier=cc.toxic_loss_multiplier or 2.0,
         num_classes=num_classes,
+        use_asl=cc.use_asl,
+        asl_gamma_pos=cc.asl_gamma_pos,
+        asl_gamma_neg=cc.asl_gamma_neg,
+        asl_margin=cc.asl_margin,
     ).to(device)
 
     optimizer = torch.optim.AdamW(
