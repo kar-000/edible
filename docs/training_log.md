@@ -84,19 +84,23 @@ All runs: EfficientNet-B0, AdamW, cosine annealing LR, early stop on val toxic F
 - **Test + calibration:** acc=86.6%, toxic_fp=1.05% (5/477), edible_fn=13.94%, rejection=5.6%
 - **Notes:** ASL too aggressive. Edible FN rate unacceptably high. T=0.65 (underconfident — γ-=4 over-suppressed negatives).
 
-### Run F — ASL γ-=2, dataset v2 🔄 in progress
+### Run F — ASL γ-=2, dataset v2 ✅ new best
 - **Config:** toxic_mult=3×, lr=5e-4, patience=7, loss=ASL(γ+=1, γ-=2, margin=0.05)
-- **Checkpoint:** `checkpoints/run_f/`
-- **Goal:** Gentler negative focusing; reduce edible FN overshoot while retaining toxic FP improvement
+- **Stopped:** epoch 8 (early stop), best_accuracy at epoch 5, val_acc=87.3%
+- **Checkpoint:** `checkpoints/run_f/best_accuracy.pt` (epoch 5, val_acc=87.3%)
+- **Test:** acc=89.6%, toxic_fp=2.94% (14/477), edible_fn=7.71%
+- **Test + calibration:** acc=90.9%, toxic_fp=1.05% (5/477), edible_fn=7.71%, rejection=6.7%
+- **Notes:** T=0.97 — nearly perfect calibration out of the box. γ-=2 hits the sweet spot: matches Run E's toxic FP without the edible FN blowout. Edible FN (7.71%) is 2.4pp worse than Run D but 6.2pp better than Run E. New best model.
 
 ---
 
 ## Current Best Model
 
-**Run D + calibration** (as of 2026-06-08):
-- Test acc=92.3% (accepted), toxic_fp=1.68%, edible_fn=5.32%, rejection=8.3%
-- Checkpoint: `checkpoints/run_d/best_accuracy.pt`
-- Calibration: T=1.54, per-class thresholds in `scripts/calibrate.py`
+**Run F + calibration** (as of 2026-06-08):
+- Test acc=90.9% (accepted), toxic_fp=1.05%, edible_fn=7.71%, rejection=6.7%
+- Checkpoint: `checkpoints/run_f/best_accuracy.pt`
+- Calibration: T=0.97, per-class thresholds in `scripts/calibrate.py`
+- Loss: ASL(γ+=1, γ-=2, margin=0.05) + toxic_mult=3×
 
 ---
 
