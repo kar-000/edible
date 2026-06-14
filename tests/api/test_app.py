@@ -19,18 +19,22 @@ from fastapi.testclient import TestClient
 from PIL import Image as PILImage
 
 from edible.api.app import app, get_pipeline
-from edible.api.inference import DEFAULT_CONFIDENCE_FLOOR, InferencePipeline
-from edible.data.pipeline import FruitGateResult, GateDecision, GateResult, InferenceResult, RejectionReason
+from edible.api.inference import InferencePipeline
+from edible.data.pipeline import (
+    FruitGateResult,
+    GateDecision,
+    GateResult,
+    RejectionReason,
+)
 from edible.data.schemas import (
+    ConfusionStage,
     Edibility,
     LookAlikeDatabase,
     LookAlikePair,
-    ConfusionStage,
     Severity,
     Species,
     SpeciesDatabase,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures: minimal in-memory databases
@@ -96,19 +100,27 @@ def empty_lookalike_db() -> LookAlikeDatabase:
 # ---------------------------------------------------------------------------
 
 def _pass_gate() -> GateResult:
-    return GateResult(decision=GateDecision.PASS, plant_score=0.9, reason="stub pass", gate_type="stub")
+    return GateResult(
+        decision=GateDecision.PASS, plant_score=0.9, reason="stub pass", gate_type="stub"
+    )
 
 
 def _reject_gate() -> GateResult:
-    return GateResult(decision=GateDecision.REJECT, plant_score=0.1, reason="stub reject", gate_type="stub")
+    return GateResult(
+        decision=GateDecision.REJECT, plant_score=0.1, reason="stub reject", gate_type="stub"
+    )
 
 
 def _pass_fruit_gate() -> FruitGateResult:
-    return FruitGateResult(decision=GateDecision.PASS, fruit_score=0.9, reason="stub pass", gate_type="stub")
+    return FruitGateResult(
+        decision=GateDecision.PASS, fruit_score=0.9, reason="stub pass", gate_type="stub"
+    )
 
 
 def _reject_fruit_gate() -> FruitGateResult:
-    return FruitGateResult(decision=GateDecision.REJECT, fruit_score=0.1, reason="stub reject", gate_type="stub")
+    return FruitGateResult(
+        decision=GateDecision.REJECT, fruit_score=0.1, reason="stub reject", gate_type="stub"
+    )
 
 
 class _StubClassifier(nn.Module):
@@ -221,7 +233,7 @@ class TestInferencePipelineConfidenceFloor:
         assert not result.accepted
         assert result.rejection_reason == RejectionReason.LOW_CONFIDENCE
 
-    def test_low_confidence_rejection_message_contains_percent(self, species_db, empty_lookalike_db):
+    def test_low_confidence_message_has_percent(self, species_db, empty_lookalike_db):
         pipeline = _make_pipeline(
             species_db, empty_lookalike_db,
             per_class_thresholds={"melia_azedarach": 2.0, "rubus_trivialis": 2.0},
@@ -366,6 +378,7 @@ class TestSpeciesEndpoint:
         import json
         import tempfile
         from pathlib import Path
+
         import edible.api.app as app_module
 
         species_data = {

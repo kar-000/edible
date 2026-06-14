@@ -36,7 +36,7 @@ from PIL import Image as PILImage
 
 from edible.api.inference import InferencePipeline
 from edible.data.pipeline import InferenceResult
-from edible.data.schemas import Edibility, load_lookalike_db, load_species_db
+from edible.data.schemas import load_lookalike_db, load_species_db
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +101,9 @@ def _build_pipeline() -> InferencePipeline:
         cal = json.loads(cal_path.read_text())
         temperature = float(cal.get("temperature", 1.0))
         per_class_thresholds = {k: float(v) for k, v in cal.get("thresholds", {}).items()}
-        logger.info("Loaded calibration: T=%.4f, %d thresholds", temperature, len(per_class_thresholds))
+        logger.info(
+            "Loaded calibration: T=%.4f, %d thresholds", temperature, len(per_class_thresholds)
+        )
 
     return InferencePipeline(
         plant_gate=plant_gate,
