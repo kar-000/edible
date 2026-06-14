@@ -249,10 +249,11 @@ class FruitPresenceGate:
         if model is None:
             import open_clip  # lazy: not needed at import time
 
-            clip, _, _ = open_clip.create_model_and_transforms(
+            clip, _, preprocess = open_clip.create_model_and_transforms(
                 clip_model_name, pretrained=clip_pretrained
             )
             self.model = clip.to(self.device).eval()
+            self.preprocess = preprocess  # CLIP-specific image preprocessing
             tokenizer = open_clip.get_tokenizer(clip_model_name)
             with torch.no_grad():
                 tokens = tokenizer(
@@ -267,6 +268,7 @@ class FruitPresenceGate:
                     "Expected shape: (2, D) where D is the CLIP embedding dimension."
                 )
             self.model = model.to(self.device).eval()
+            self.preprocess = None  # caller provides transforms when using a stub
             self._text_features = text_features.to(self.device)
 
     @torch.no_grad()

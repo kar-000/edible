@@ -181,6 +181,10 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("checkpoint", type=Path)
     parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument(
+        "--save", action="store_true",
+        help="Save calibration (T + thresholds) to <checkpoint_dir>/calibration.json",
+    )
     args = parser.parse_args()
 
     device = (
@@ -236,6 +240,20 @@ def main() -> None:
 
     print("\n── Calibrated + per-class thresholds ─────────────────────")
     evaluate_with_thresholds(test_probs, test_labels, thresholds, toxic_indices, species_ids)
+
+    if args.save:
+        cal = {
+            "checkpoint": str(args.checkpoint),
+            "temperature": round(T, 6),
+            "thresholds": {
+                species_ids[c]: round(float(thresholds[c]), 6)
+                for c in range(num_classes)
+                if thresholds[c] > 0
+            },
+        }
+        save_path = args.checkpoint.parent / "calibration.json"
+        save_path.write_text(__import__("json").dumps(cal, indent=2))
+        print(f"\nCalibration saved → {save_path}")
 
 
 if __name__ == "__main__":

@@ -1169,8 +1169,11 @@ api = [
     { name = "uvicorn", extra = ["standard"] },
 ]
 dev = [
+    { name = "fastapi" },
+    { name = "httpx" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "python-multipart" },
     { name = "responses" },
     { name = "ruff" },
 ]
@@ -1192,6 +1195,8 @@ ml = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", marker = "extra == 'api'", specifier = ">=0.111" },
+    { name = "fastapi", marker = "extra == 'dev'", specifier = ">=0.111" },
+    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
     { name = "label-studio", marker = "extra == 'labeling'", specifier = ">=1.11" },
     { name = "matplotlib", marker = "extra == 'ml'", specifier = ">=3.9" },
     { name = "numpy", marker = "extra == 'ml'", specifier = ">=1.26" },
@@ -1202,6 +1207,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
     { name = "python-dotenv", specifier = ">=1.0" },
     { name = "python-multipart", marker = "extra == 'api'", specifier = ">=0.0.9" },
+    { name = "python-multipart", marker = "extra == 'dev'", specifier = ">=0.0.9" },
     { name = "requests", specifier = ">=2.32" },
     { name = "responses", marker = "extra == 'dev'", specifier = ">=0.25" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
