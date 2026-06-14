@@ -63,6 +63,29 @@ class GateResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Layer 1b — Fruit-presence gate
+# ---------------------------------------------------------------------------
+
+class FruitGateResult(BaseModel):
+    """Output of the Layer 1b fruit-presence gate."""
+
+    decision: GateDecision
+    fruit_score: float = Field(..., ge=0.0, le=1.0)
+    reason: str
+    gate_type: str  # e.g. "clip_fruit"
+
+    @model_validator(mode="after")
+    def reject_wins_on_uncertainty(self) -> "FruitGateResult":
+        """Fail-safe: fruit_score < 0.5 must never produce PASS."""
+        if self.fruit_score < 0.5 and self.decision == GateDecision.PASS:
+            raise ValueError(
+                f"Fruit gate fail-safe violated: fruit_score={self.fruit_score:.3f} < 0.5 "
+                f"but decision is PASS. Gate must REJECT when uncertain."
+            )
+        return self
+
+
+# ---------------------------------------------------------------------------
 # Classifier output — per-species prediction
 # ---------------------------------------------------------------------------
 
@@ -155,6 +178,7 @@ class LookAlikeWarning(BaseModel):
 
 class RejectionReason(str, Enum):
     NOT_A_PLANT = "not_a_plant"
+    NO_FRUIT_VISIBLE = "no_fruit_visible"  # Layer 1b rejection
     LOW_CONFIDENCE = "low_confidence"
     IMAGE_INVALID = "image_invalid"
 

@@ -42,6 +42,12 @@ class ClassifierConfig:
     # CrossEntropyLoss.  None means use class-frequency weights from dataset.
     toxic_loss_multiplier: Optional[float] = 2.0
 
+    # Asymmetric Loss — replaces weighted CrossEntropy when True.
+    use_asl: bool = False
+    asl_gamma_pos: float = 1.0   # focusing strength for the true class (mild)
+    asl_gamma_neg: float = 4.0   # focusing strength for false classes (strong)
+    asl_margin: float = 0.05     # probability shift: clips easy negatives to 0
+
 
 class EdibleClassifier(nn.Module):
     """
@@ -163,12 +169,94 @@ def build_classifier(config: ClassifierConfig) -> EdibleClassifier:
     )
 
 
+class AsymmetricLoss(nn.Module):
+    """
+    Asymmetric Loss (ASL) adapted for multi-class single-label classification.
+
+    Treats each class as an independent sigmoid binary output (one-vs-rest),
+    then applies different focal weights for the true class vs. all others:
+
+      - True class  (positive): -(1 - p)^γ+  · log(p)
+        γ+ is kept small (0–1) so the gradient on hard correct examples
+        is not suppressed too aggressively.
+
+      - False classes (negatives): -(p_shifted)^γ-  · log(1 - p_shifted)
+        where p_shifted = max(p - margin, 0).
+        The margin clips very-low-probability negatives to zero (ignores
+        easy negatives entirely).  γ- is large (2–4) to down-weight the
+        remaining easy negatives, forcing the model to focus on hard cases.
+
+    An optional per-sample toxic multiplier is applied on top: samples whose
+    ground-truth class is toxic have their loss scaled up, preserving the
+    safety-critical weighting from the original CrossEntropyLoss design.
+    """
+
+    def __init__(
+        self,
+        gamma_pos: float = 1.0,
+        gamma_neg: float = 4.0,
+        margin: float = 0.05,
+        toxic_indices: Optional[set[int]] = None,
+        toxic_multiplier: float = 3.0,
+    ) -> None:
+        super().__init__()
+        self.gamma_pos = gamma_pos
+        self.gamma_neg = gamma_neg
+        self.margin = margin
+        self.toxic_indices = toxic_indices or set()
+        self.toxic_multiplier = toxic_multiplier
+
+    def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        B, C = logits.shape
+
+        # One-hot targets: shape (B, C)
+        targets = F.one_hot(labels, C).float()
+
+        # Per-class sigmoid probability (independent binary treatment)
+        probs = torch.sigmoid(logits)
+
+        # Shift negatives: clips easy negatives to 0
+        probs_neg = (probs - self.margin).clamp(min=0.0)
+
+        # Blend: use original p for positives, shifted p for negatives
+        probs_blended = targets * probs + (1.0 - targets) * probs_neg
+
+        # Log terms (clamped for numerical stability)
+        eps = 1e-8
+        log_p = torch.log(probs_blended.clamp(min=eps))
+        log_1mp = torch.log((1.0 - probs_blended).clamp(min=eps))
+
+        # Asymmetric focal weights
+        w_pos = (1.0 - probs).pow(self.gamma_pos)   # down-weights easy positives mildly
+        w_neg = probs_blended.pow(self.gamma_neg)    # down-weights easy negatives strongly
+
+        focal = targets * w_pos + (1.0 - targets) * w_neg
+
+        # Per-sample loss: sum over classes
+        sample_loss = -(focal * (targets * log_p + (1.0 - targets) * log_1mp)).sum(dim=1)
+
+        # Toxic class upweighting (per sample)
+        if self.toxic_indices:
+            is_toxic = torch.tensor(
+                [int(lbl) in self.toxic_indices for lbl in labels.tolist()],
+                device=logits.device,
+                dtype=torch.float32,
+            )
+            sample_loss = sample_loss * (1.0 + (self.toxic_multiplier - 1.0) * is_toxic)
+
+        return sample_loss.mean()
+
+
 def build_loss(
     class_weights: Optional[torch.Tensor] = None,
     toxic_indices: Optional[set[int]] = None,
     toxic_multiplier: float = 2.0,
     num_classes: int = 12,
-) -> nn.CrossEntropyLoss:
+    use_asl: bool = False,
+    asl_gamma_pos: float = 1.0,
+    asl_gamma_neg: float = 4.0,
+    asl_margin: float = 0.05,
+) -> nn.Module:
     """
     Build a CrossEntropyLoss with optional toxic-class upweighting.
 
@@ -176,15 +264,27 @@ def build_loss(
     ----------
     class_weights:
         Per-class frequency weights (e.g. from ``EdibleDataset.class_weights()``).
-        If None, uniform weights are used.
+        Used only for weighted CrossEntropy (ignored when use_asl=True).
     toxic_indices:
-        Indices of toxic classes.  Their weights are multiplied by
-        *toxic_multiplier* on top of any frequency weighting.
+        Indices of toxic classes.
     toxic_multiplier:
-        Additional weight for toxic classes.
+        Additional per-sample weight for toxic-class training examples.
     num_classes:
-        Total number of classes (used only when *class_weights* is None).
+        Total number of classes (used only when class_weights is None and use_asl=False).
+    use_asl:
+        If True, return AsymmetricLoss instead of weighted CrossEntropyLoss.
+    asl_gamma_pos, asl_gamma_neg, asl_margin:
+        ASL hyper-parameters (ignored when use_asl=False).
     """
+    if use_asl:
+        return AsymmetricLoss(
+            gamma_pos=asl_gamma_pos,
+            gamma_neg=asl_gamma_neg,
+            margin=asl_margin,
+            toxic_indices=toxic_indices,
+            toxic_multiplier=toxic_multiplier,
+        )
+
     if class_weights is None:
         weights = torch.ones(num_classes)
     else:
