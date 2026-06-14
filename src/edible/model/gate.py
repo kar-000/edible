@@ -25,7 +25,7 @@ import torch
 import torch.nn.functional as F
 from torchvision import models
 
-from edible.data.pipeline import GateDecision, GateResult
+from edible.data.pipeline import FruitGateResult, GateDecision, GateResult
 
 # ---------------------------------------------------------------------------
 # ImageNet plant synset indices
@@ -195,3 +195,110 @@ class PlantGate:
                 gate_type="imagenet_category",
             ))
         return results
+
+
+# ---------------------------------------------------------------------------
+# Layer 1b — Fruit-presence gate (CLIP zero-shot)
+# ---------------------------------------------------------------------------
+
+class FruitPresenceGate:
+    """
+    Layer 1b — Rejects images where no berries or fruit are visible.
+
+    Runs after PlantGate, before the species classifier.  Addresses the
+    root cause of 3/7 dangerous FPs from Run A: stem/leaf-only images that
+    passed the plant gate but had no distinguishing fruit features.
+
+    Uses CLIP zero-shot classification with two text prompts.  The fruit
+    score is the softmax probability assigned to the positive prompt.
+    open_clip is imported lazily so the class is importable without the
+    dependency installed (tests inject a stub model instead).
+
+    Parameters
+    ----------
+    model:
+        CLIP model with ``encode_image(tensor) → features`` method.
+        When None, loads ``ViT-B-32`` from open_clip.
+    text_features:
+        Pre-encoded text prompt features, shape ``(2, D)``, row 0 =
+        positive prompt ("fruit visible"), row 1 = negative prompt.
+        Required when *model* is provided (test/stub mode).
+    threshold:
+        Minimum fruit_score to pass.  Default 0.55.
+    device:
+        Torch device.
+    """
+
+    POSITIVE_PROMPT = "a photo showing berries or visible fruit growing on a plant"
+    NEGATIVE_PROMPT = "a photo of plant leaves, stems, or bark without any visible fruit"
+
+    DEFAULT_THRESHOLD = 0.55
+
+    def __init__(
+        self,
+        model: Optional[torch.nn.Module] = None,
+        text_features: Optional[torch.Tensor] = None,
+        threshold: float = DEFAULT_THRESHOLD,
+        device: Optional[torch.device] = None,
+        clip_model_name: str = "ViT-B-32",
+        clip_pretrained: str = "openai",
+    ) -> None:
+        self.device = device or torch.device("cpu")
+        self.threshold = threshold
+
+        if model is None:
+            import open_clip  # lazy: not needed at import time
+
+            clip, _, _ = open_clip.create_model_and_transforms(
+                clip_model_name, pretrained=clip_pretrained
+            )
+            self.model = clip.to(self.device).eval()
+            tokenizer = open_clip.get_tokenizer(clip_model_name)
+            with torch.no_grad():
+                tokens = tokenizer(
+                    [self.POSITIVE_PROMPT, self.NEGATIVE_PROMPT]
+                ).to(self.device)
+                tf = self.model.encode_text(tokens)
+                self._text_features = (tf / tf.norm(dim=-1, keepdim=True)).to(self.device)
+        else:
+            if text_features is None:
+                raise ValueError(
+                    "text_features must be provided alongside model in stub/test mode. "
+                    "Expected shape: (2, D) where D is the CLIP embedding dimension."
+                )
+            self.model = model.to(self.device).eval()
+            self._text_features = text_features.to(self.device)
+
+    @torch.no_grad()
+    def __call__(self, image: torch.Tensor) -> FruitGateResult:
+        """
+        Evaluate a single image tensor ``(C, H, W)`` or batch ``(B, C, H, W)``.
+
+        Returns a ``FruitGateResult`` for the first image in the batch.
+        Note: for production use, preprocess the image with CLIP's own
+        transform before passing it here.
+        """
+        if image.dim() == 3:
+            image = image.unsqueeze(0)
+        image = image.to(self.device)
+
+        image_features = self.model.encode_image(image)  # (B, D)
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+
+        # CLIP's typical logit_scale ≈ e^4.6 ≈ 100
+        logits = image_features @ self._text_features.T * 100.0  # (B, 2)
+        probs = torch.softmax(logits, dim=1)
+        fruit_score = float(probs[0, 0])  # probability of positive prompt
+
+        decision = GateDecision.PASS if fruit_score >= self.threshold else GateDecision.REJECT
+        reason = (
+            f"fruit visible (score={fruit_score:.3f})"
+            if decision == GateDecision.PASS
+            else f"no fruit detected (score={fruit_score:.3f} < threshold {self.threshold})"
+        )
+        return FruitGateResult(
+            decision=decision,
+            fruit_score=fruit_score,
+            reason=reason,
+            gate_type="clip_fruit",
+        )

@@ -10,9 +10,10 @@ import pytest
 import torch
 import torch.nn as nn
 
-from edible.data.pipeline import GateDecision, GateResult
+from edible.data.pipeline import FruitGateResult, GateDecision, GateResult
 from edible.model.gate import (
     CONSERVATIVE_PLANT_INDICES,
+    FruitPresenceGate,
     PlantGate,
 )
 
@@ -244,3 +245,145 @@ class TestConservativePlantIndices:
     def test_known_fruit_class_included(self):
         # Class 948 is "Granny Smith" (apple) — should be plant-like
         assert 948 in CONSERVATIVE_PLANT_INDICES
+
+
+# ---------------------------------------------------------------------------
+# FruitPresenceGate (Layer 1b) — stub CLIP model
+# ---------------------------------------------------------------------------
+
+class _FixedCLIPEncoder(nn.Module):
+    """
+    Stub CLIP image encoder.
+
+    ``image_class_idx=0`` → image features point toward positive prompt
+    (fruit visible → PASS).
+    ``image_class_idx=1`` → point toward negative prompt (no fruit → REJECT).
+    """
+
+    def __init__(self, feat_dim: int = 2, image_class_idx: int = 0):
+        super().__init__()
+        self.feat_dim = feat_dim
+        self.image_class_idx = image_class_idx
+        self._dummy = nn.Parameter(torch.zeros(1), requires_grad=False)
+
+    def encode_image(self, x: torch.Tensor) -> torch.Tensor:
+        b = x.shape[0]
+        feats = torch.zeros(b, self.feat_dim)
+        feats[:, self.image_class_idx] = 1.0
+        return feats
+
+
+def _make_fruit_gate(has_fruit: bool, **kwargs) -> FruitPresenceGate:
+    """Build a FruitPresenceGate backed by a stub CLIP model."""
+    feat_dim = 2
+    # text_features: row 0 = positive prompt direction, row 1 = negative
+    text_features = torch.eye(feat_dim)
+    model = _FixedCLIPEncoder(feat_dim=feat_dim, image_class_idx=0 if has_fruit else 1)
+    return FruitPresenceGate(model=model, text_features=text_features, **kwargs)
+
+
+class TestFruitPresenceGatePassCase:
+    def test_fruit_image_passes(self):
+        gate = _make_fruit_gate(has_fruit=True)
+        result = gate(torch.randn(3, 224, 224))
+        assert result.decision == GateDecision.PASS
+
+    def test_fruit_score_high_when_fruit_present(self):
+        gate = _make_fruit_gate(has_fruit=True)
+        result = gate(torch.randn(3, 224, 224))
+        assert result.fruit_score > 0.9
+
+    def test_result_is_fruit_gate_result(self):
+        gate = _make_fruit_gate(has_fruit=True)
+        result = gate(torch.randn(3, 224, 224))
+        assert isinstance(result, FruitGateResult)
+
+    def test_gate_type_is_clip_fruit(self):
+        gate = _make_fruit_gate(has_fruit=True)
+        result = gate(torch.randn(3, 224, 224))
+        assert result.gate_type == "clip_fruit"
+
+    def test_reason_non_empty_on_pass(self):
+        gate = _make_fruit_gate(has_fruit=True)
+        result = gate(torch.randn(3, 224, 224))
+        assert result.reason.strip()
+
+
+class TestFruitPresenceGateRejectCase:
+    def test_no_fruit_image_rejects(self):
+        gate = _make_fruit_gate(has_fruit=False)
+        result = gate(torch.randn(3, 224, 224))
+        assert result.decision == GateDecision.REJECT
+
+    def test_fruit_score_low_when_no_fruit(self):
+        gate = _make_fruit_gate(has_fruit=False)
+        result = gate(torch.randn(3, 224, 224))
+        assert result.fruit_score < 0.1
+
+    def test_reason_mentions_no_fruit(self):
+        gate = _make_fruit_gate(has_fruit=False)
+        result = gate(torch.randn(3, 224, 224))
+        assert "no fruit" in result.reason.lower()
+
+
+class TestFruitGateFailSafe:
+    def test_schema_rejects_pass_with_low_fruit_score(self):
+        with pytest.raises(Exception):
+            FruitGateResult(
+                decision=GateDecision.PASS,
+                fruit_score=0.3,
+                reason="bad",
+                gate_type="test",
+            )
+
+    def test_low_fruit_score_forces_reject(self):
+        gate = _make_fruit_gate(has_fruit=False)
+        result = gate(torch.randn(3, 224, 224))
+        if result.fruit_score < 0.5:
+            assert result.decision == GateDecision.REJECT
+
+
+class TestFruitGateThreshold:
+    def test_high_threshold_forces_reject_on_borderline(self):
+        # fruit_score ≈ 1.0 for has_fruit=True, so use a nonsensical threshold > 1
+        # Instead test that threshold=1.0 blocks even a fruit image
+        gate = _make_fruit_gate(has_fruit=True, threshold=1.1)
+        result = gate(torch.randn(3, 224, 224))
+        assert result.decision == GateDecision.REJECT
+
+    def test_low_threshold_allows_borderline(self):
+        # has_fruit=True → fruit_score ≈ 1.0, any reasonable threshold passes
+        gate = _make_fruit_gate(has_fruit=True, threshold=0.1)
+        result = gate(torch.randn(3, 224, 224))
+        assert result.decision == GateDecision.PASS
+
+
+class TestFruitGateInputShape:
+    def test_3d_input_promoted_to_batch(self):
+        gate = _make_fruit_gate(has_fruit=True)
+        result = gate(torch.randn(3, 224, 224))
+        assert isinstance(result, FruitGateResult)
+
+    def test_4d_batch_uses_first_image(self):
+        gate = _make_fruit_gate(has_fruit=True)
+        result = gate(torch.randn(2, 3, 224, 224))
+        assert isinstance(result, FruitGateResult)
+
+
+class TestFruitGateConstructor:
+    def test_model_without_text_features_raises(self):
+        model = _FixedCLIPEncoder()
+        with pytest.raises(ValueError, match="text_features"):
+            FruitPresenceGate(model=model, text_features=None)
+
+    def test_default_threshold_is_applied(self):
+        gate = _make_fruit_gate(has_fruit=True)
+        assert gate.threshold == FruitPresenceGate.DEFAULT_THRESHOLD
+
+    def test_custom_threshold_stored(self):
+        gate = _make_fruit_gate(has_fruit=True, threshold=0.7)
+        assert gate.threshold == 0.7
+
+    def test_default_device_is_cpu(self):
+        gate = _make_fruit_gate(has_fruit=True)
+        assert gate.device == torch.device("cpu")

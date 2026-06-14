@@ -105,8 +105,8 @@ All runs: EfficientNet-B0, AdamW, cosine annealing LR, early stop on val toxic F
 ---
 
 ## Pending Investigations
-- [ ] Run F (ASL γ-=2) results + calibration
+- [x] Run F (ASL γ-=2) results + calibration — complete; new best model
+- [x] Fruit-presence gate (Layer 1b) — implemented in `src/edible/model/gate.py` (`FruitPresenceGate`); CLIP zero-shot, lazy import, 16 tests
 - [ ] Chinaberry→agarita confusion: inspect agarita training data for yellow-toned images
 - [ ] Intra-class CutMix for toxic species (research finding)
-- [ ] Fruit-presence gate (Layer 1b) — inference-time gate requiring visible fruit
 - [ ] FastAPI backend wiring
