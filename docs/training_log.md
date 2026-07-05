@@ -132,14 +132,26 @@ All runs: EfficientNet-B0, AdamW, cosine annealing LR, early stop on val toxic F
 - Loss: ASL(γ+=1, γ-=2, margin=0.05) + label_smoothing=0.1 + toxic_mult=3×
 
 Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
-| Run | Checkpoint | Calibrated toxic FP | Accepted acc | Notes |
-|-----|---|---|---|---|
-| I best_safety | epoch 1 | **0.18%** | 78.8% | ← new production checkpoint |
-| F best_accuracy | epoch 5 | 0.71% | 88.1% | re-evaluated on v2.1 dataset |
-| I best_accuracy | epoch 8 | 1.82% | 88.7% | |
-| G best_safety | epoch 4 | 1.28% | ? | CutMix only (eval on old dataset) |
-| H best_accuracy | epoch 10 | 1.89% | ? | All regularization (eval on old dataset) |
-| H best_safety | epoch 4 | 2.73% | ? | Early stop (eval on old dataset) |
+| Run | Checkpoint | Calibrated toxic FP | Accepted acc | Rejection | Notes |
+|-----|---|---|---|---|---|
+| I best_safety | epoch 1 | **0.18%** (1/544) | 78.8% | 10.2% | ← production checkpoint |
+| J best_safety | epoch 2 | 0.50% (3/604) | 84.9% | 5.6% | v2.1 dataset; better UX but worse safety |
+| F best_accuracy | epoch 5 | 0.71% (4/562) | 88.1% | 8.2% | re-evaluated on v2.1 |
+| J best_accuracy | epoch 8 | 1.82% (11/604) | **91.7%** | 3.0% | best accuracy overall |
+| I best_accuracy | epoch 8 | 1.82% (10/548) | 88.7% | 7.0% | |
+| G best_safety | epoch 4 | 1.28% | ? | ? | CutMix only (old dataset eval) |
+| H best_accuracy | epoch 10 | 1.89% | ? | ? | All regularization (old dataset eval) |
+| H best_safety | epoch 4 | 2.73% | ? | ? | Early stop (old dataset eval) |
+
+### Run J — ASL γ-=2 + label smoothing ε=0.1, dataset v2.1 (1,664 ilex_decidua)
+- **Config:** toxic_mult=3×, lr=5e-4, patience=7, loss=ASL(γ+=1, γ-=2, margin=0.05), label_smoothing=0.1
+- **Stopped:** epoch 9 (patience=7), best_safety at epoch 2, best_accuracy at epoch 8
+- **best_safety:** epoch 2, val_acc=82.8%, val_toxic_fp=2.07%
+  - Calibration: T=0.743, toxic_fp=**0.50%** (3/604), acc=84.9%, rejection=5.6%
+  - Calibration saved → `checkpoints/run_j/calibration.json`
+- **best_accuracy:** epoch 8, val_acc=89.5%, val_toxic_fp=3.63%
+  - Calibration: T=0.994, toxic_fp=1.82% (11/604), acc=**91.7%**, rejection=3.0%
+- **Notes:** Training on v2.1 (2.5× ilex_decidua) improved best_safety convergence — epoch 2 vs Run I's epoch 1 — and raised accepted accuracy from 78.8% → 84.9% with rejection dropping from 10.2% → 5.6%. But calibrated toxic FP (0.50%) does not beat Run I best_safety (0.18%). Run I remains production. best_accuracy is the best accuracy checkpoint overall (91.7%) but 1.82% toxic FP.
 
 ---
 
@@ -149,8 +161,8 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 - [x] Intra-class CutMix for toxic species — implemented (feature/training-experiments); Run H showed marginal or negative effect combined with other regularization
 - [x] FastAPI backend — implemented and working; `src/edible/api/`
 - [x] React frontend — implemented; `frontend/`
-- [x] Scrape more ilex_decidua images: expanded 661 → 1,185 (v2.1, blur-only Texas)
+- [x] Scrape more ilex_decidua images: expanded 661 → 1,664 (v2.1, blur-only Texas)
 - [x] Ablation: Run F config + label smoothing only → Run I; new production checkpoint (0.18% toxic FP)
-- [ ] Run J: retrain Run I config on v2.1 dataset (1,185 ilex_decidua) — may improve accuracy while holding safety gains
-- [ ] Hard negative mining: boost sampling frequency of known FP images
+- [x] Run J: retrain Run I config on v2.1 dataset (1,664 ilex_decidua) — J best_safety (0.50%) does not beat I best_safety (0.18%); Run I stays in production
+- [ ] Hard negative mining: boost sampling frequency of known FP images (3 remaining in Run J best_safety)
 - [ ] GPS location re-ranking: API accepts lat/lon but ignores it; USDA PLANTS + BONAP needed
