@@ -78,10 +78,10 @@ class TestGateResult:
         g = GateResult.model_validate(_gate(GateDecision.REJECT, 0.5))
         assert g.decision == GateDecision.REJECT
 
-    def test_barely_below_half_with_pass_is_rejected_by_validator(self):
-        """Fail-safe: plant_score < 0.5 with PASS decision must raise."""
-        with pytest.raises(ValidationError, match="fail-safe"):
-            GateResult.model_validate(_gate(GateDecision.PASS, 0.49))
+    def test_nonzero_score_with_pass_is_allowed(self):
+        """Nature-context indices can produce sub-0.5 plant_score while PASSing."""
+        result = GateResult.model_validate(_gate(GateDecision.PASS, 0.49))
+        assert result.decision == GateDecision.PASS
 
     def test_zero_score_with_pass_decision_raises(self):
         with pytest.raises(ValidationError, match="fail-safe"):

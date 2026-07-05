@@ -180,6 +180,8 @@ class InferencePipeline:
         """Run classifier with temperature scaling; return (species_id, confidence, edibility)."""
         if clf_tensor.dim() == 3:
             clf_tensor = clf_tensor.unsqueeze(0)
+        device = next(self.classifier.parameters()).device
+        clf_tensor = clf_tensor.to(device)
         with torch.no_grad():
             logits = self.classifier(clf_tensor)  # (1, num_classes)
             probs = F.softmax(logits / self.temperature, dim=1)[0]  # (num_classes,)

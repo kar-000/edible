@@ -209,6 +209,10 @@ tempCodeRunnerFile.py
 # PyPI configuration file
 .pypirc
 
+# Node / frontend
+node_modules/
+frontend/dist/
+
 # Edible project — local data (images can be gigabytes)
 data/images/
 data/raw/
