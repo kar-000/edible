@@ -92,21 +92,46 @@ All runs: EfficientNet-B0, AdamW, cosine annealing LR, early stop on val toxic F
 - **Test + calibration:** acc=90.9%, toxic_fp=1.05% (5/477), edible_fn=7.71%, rejection=6.7%
 - **Notes:** T=0.97 — nearly perfect calibration out of the box. γ-=2 hits the sweet spot: matches Run E's toxic FP without the edible FN blowout. Edible FN (7.71%) is 2.4pp worse than Run D but 6.2pp better than Run E. New best model.
 
+### Run G — ASL γ-=4, CutMix (prob=0.5, α=1.0), dataset v2
+- **Config:** toxic_mult=3×, lr=5e-4, patience=7, loss=ASL(γ+=1, γ-=4, margin=0.05), cutmix_prob=0.5, cutmix_alpha=1.0
+- **Best_safety checkpoint:** epoch 4 (see run g calibration)
+- **Test + calibration (best_safety):** acc=?, toxic_fp=1.28% (calibrated)
+- **Notes:** CutMix alone vs Run F. Worse than Run F on safety metric. Run F still best.
+
+### Run H — ASL γ-=4, CutMix + balanced sampling + label smoothing, dataset v2
+- **Config:** toxic_mult=3×, lr=5e-4, patience=7, loss=ASL(γ+=1, γ-=4, margin=0.05), cutmix_prob=0.5, cutmix_alpha=1.0, balanced_sampling=True, label_smoothing=0.1
+- **Stopped:** epoch 11 (patience=7), best_safety at epoch 4 (val_acc=0.815, val_toxic_fp=2.83%)
+- **Best_safety calibration:** T=0.778, toxic_fp=2.73% (13/476) ← worse than Run F/G
+- **Best_accuracy calibration:** epoch 10 (val_acc=0.889), toxic_fp=1.89% (9/476) ← better than best_safety but worse than Run F
+- **Notes:** All three regularization techniques together (CutMix + balanced sampling + label smoothing) add too much regularization for this dataset size. Early stopping hit epoch 4 for safety checkpoint — model hadn't converged. γ-=4 already aggressive; adding more regularization on top made it worse.
+
 ---
 
 ## Current Best Model
 
-**Run F + calibration** (as of 2026-06-08):
+**Run F + calibration** (as of 2026-07-05, unchanged):
 - Test acc=90.9% (accepted), toxic_fp=1.05%, edible_fn=7.71%, rejection=6.7%
 - Checkpoint: `checkpoints/run_f/best_accuracy.pt`
-- Calibration: T=0.97, per-class thresholds in `scripts/calibrate.py`
+- Calibration: T=0.97, per-class thresholds in `checkpoints/run_f/calibration.json`
 - Loss: ASL(γ+=1, γ-=2, margin=0.05) + toxic_mult=3×
+
+Run scorecard (calibrated toxic FP):
+| Run | Calibrated toxic FP | Notes |
+|-----|---|---|
+| F best_accuracy | **1.05%** | ← production checkpoint |
+| G best_safety | 1.28% | CutMix only |
+| H best_accuracy | 1.89% | All regularization combined |
+| H best_safety | 2.73% | Early stop at epoch 4 |
 
 ---
 
 ## Pending Investigations
 - [x] Run F (ASL γ-=2) results + calibration — complete; new best model
 - [x] Fruit-presence gate (Layer 1b) — implemented in `src/edible/model/gate.py` (`FruitPresenceGate`); CLIP zero-shot, lazy import, 16 tests
-- [ ] Chinaberry→agarita confusion: inspect agarita training data for yellow-toned images
-- [ ] Intra-class CutMix for toxic species (research finding)
-- [ ] FastAPI backend wiring
+- [x] Intra-class CutMix for toxic species — implemented (feature/training-experiments); Run H showed marginal or negative effect combined with other regularization
+- [x] FastAPI backend — implemented and working; `src/edible/api/`
+- [x] React frontend — implemented; `frontend/`
+- [ ] Scrape more ilex_decidua images: 6/14 FPs from Run F came from this species (data scarcity)
+- [ ] Hard negative mining: boost sampling frequency of known FP images
+- [ ] GPS location re-ranking: API accepts lat/lon but ignores it; USDA PLANTS + BONAP needed
+- [ ] Ablation: try Run F config + label smoothing only (no CutMix, no balanced sampling)
