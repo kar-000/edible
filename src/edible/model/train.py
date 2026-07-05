@@ -253,7 +253,9 @@ def train(cfg: TrainConfig) -> list[EpochResult]:
             images = images.to(device)
             labels = labels.to(device)
             if cfg.cutmix_prob > 0:
-                images = _intra_class_cutmix(images, labels, toxic_indices, cfg.cutmix_prob, cfg.cutmix_alpha)
+                images = _intra_class_cutmix(
+                    images, labels, toxic_indices, cfg.cutmix_prob, cfg.cutmix_alpha
+                )
             optimizer.zero_grad()
             logits = model(images)
             loss = criterion(logits, labels)
