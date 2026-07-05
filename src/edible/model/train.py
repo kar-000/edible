@@ -42,6 +42,49 @@ from edible.model.evaluate import SafetyMetrics, evaluate_model
 TOXIC_FP_ALARM_THRESHOLD = 0.05
 
 
+def _intra_class_cutmix(
+    images: torch.Tensor,
+    labels: torch.Tensor,
+    toxic_indices: set[int],
+    prob: float,
+    alpha: float,
+) -> torch.Tensor:
+    """Paste a random crop from a same-class toxic image into each toxic image.
+
+    Labels are unchanged because mixing is strictly intra-class.
+    Skipped silently when a batch contains only one image of a given toxic class.
+    """
+    images = images.clone()
+    B, _, H, W = images.shape
+    beta = torch.distributions.Beta(alpha, alpha)
+
+    for i in range(B):
+        label_i = int(labels[i].item())
+        if label_i not in toxic_indices or torch.rand(1).item() > prob:
+            continue
+
+        candidates = [j for j in range(B) if j != i and int(labels[j].item()) == label_i]
+        if not candidates:
+            continue
+
+        j = candidates[int(torch.randint(len(candidates), (1,)).item())]
+        lam = float(beta.sample().item())
+
+        cut_h = int(H * (1 - lam) ** 0.5)
+        cut_w = int(W * (1 - lam) ** 0.5)
+        cx = int(torch.randint(W, (1,)).item())
+        cy = int(torch.randint(H, (1,)).item())
+
+        x1 = max(0, cx - cut_w // 2)
+        y1 = max(0, cy - cut_h // 2)
+        x2 = min(W, x1 + cut_w)
+        y2 = min(H, y1 + cut_h)
+
+        images[i, :, y1:y2, x1:x2] = images[j, :, y1:y2, x1:x2]
+
+    return images
+
+
 @dataclass
 class EpochResult:
     epoch: int
@@ -82,6 +125,10 @@ class TrainConfig:
     # Early stopping on toxic FP rate
     toxic_fp_patience: int = 5  # stop if no improvement for N epochs
     toxic_fp_min_delta: float = 0.005  # improvement threshold
+
+    # Intra-class CutMix (toxic species only)
+    cutmix_prob: float = 0.0   # 0 = disabled
+    cutmix_alpha: float = 1.0  # Beta distribution shape parameter
 
     # Device
     device: Optional[torch.device] = None
@@ -186,6 +233,8 @@ def train(cfg: TrainConfig) -> list[EpochResult]:
         for images, labels in train_loader:
             images = images.to(device)
             labels = labels.to(device)
+            if cfg.cutmix_prob > 0:
+                images = _intra_class_cutmix(images, labels, toxic_indices, cfg.cutmix_prob, cfg.cutmix_alpha)
             optimizer.zero_grad()
             logits = model(images)
             loss = criterion(logits, labels)

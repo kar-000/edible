@@ -20,6 +20,7 @@ from edible.model.train import (
     EpochResult,
     TrainConfig,
     _get_device,
+    _intra_class_cutmix,
     train,
 )
 
@@ -234,6 +235,99 @@ class TestEarlyStopping:
         history = train(cfg)
         # Should have stopped before epoch 10
         assert len(history) < 10
+
+
+# ---------------------------------------------------------------------------
+# _intra_class_cutmix
+# ---------------------------------------------------------------------------
+
+def _make_batch(B: int = 4, C: int = 3, H: int = 8, W: int = 8):
+    images = torch.zeros(B, C, H, W)
+    for i in range(B):
+        images[i] = float(i)  # each image has a distinct fill value
+    return images
+
+
+class TestIntraClassCutmix:
+    TOXIC = {0}
+
+    def test_edible_images_never_modified(self):
+        images = _make_batch(4)
+        # labels: all edible (class 1)
+        labels = torch.tensor([1, 1, 1, 1])
+        original = images.clone()
+        result = _intra_class_cutmix(images, labels, self.TOXIC, prob=1.0, alpha=1.0)
+        assert torch.equal(result, original)
+
+    def test_prob_zero_leaves_images_unchanged(self):
+        images = _make_batch(4)
+        labels = torch.tensor([0, 0, 1, 1])
+        original = images.clone()
+        result = _intra_class_cutmix(images, labels, self.TOXIC, prob=0.0, alpha=1.0)
+        assert torch.equal(result, original)
+
+    def test_single_toxic_image_in_batch_skipped(self):
+        images = _make_batch(4)
+        # Only one toxic sample — no candidate to pair with
+        labels = torch.tensor([0, 1, 1, 1])
+        original = images.clone()
+        result = _intra_class_cutmix(images, labels, self.TOXIC, prob=1.0, alpha=1.0)
+        assert torch.equal(result, original)
+
+    def test_does_not_modify_input_tensor(self):
+        images = _make_batch(4)
+        labels = torch.tensor([0, 0, 1, 1])
+        original = images.clone()
+        _intra_class_cutmix(images, labels, self.TOXIC, prob=1.0, alpha=1.0)
+        assert torch.equal(images, original)  # input is not mutated
+
+    def test_output_shape_unchanged(self):
+        images = _make_batch(4)
+        labels = torch.tensor([0, 0, 1, 1])
+        result = _intra_class_cutmix(images, labels, self.TOXIC, prob=1.0, alpha=1.0)
+        assert result.shape == images.shape
+
+    def test_toxic_image_modified_when_pair_exists(self):
+        from unittest.mock import patch
+        images = _make_batch(4)  # images[0]=0.0 (toxic), images[1]=1.0 (toxic)
+        labels = torch.tensor([0, 0, 1, 1])
+        # Force lam=0.0 → cut_h=H, cut_w=W → guaranteed non-empty crop from the paired image
+        with patch.object(torch.distributions.Beta, "sample", return_value=torch.tensor(0.0)), \
+             patch("edible.model.train.torch.rand", return_value=torch.tensor(0.0)):
+            result = _intra_class_cutmix(images, labels, self.TOXIC, prob=1.0, alpha=1.0)
+        assert not torch.equal(result[0], images[0]) or not torch.equal(result[1], images[1])
+
+    def test_edible_images_untouched_when_toxic_mixed(self):
+        torch.manual_seed(0)
+        images = _make_batch(4)
+        labels = torch.tensor([0, 0, 1, 1])
+        original = images.clone()
+        result = _intra_class_cutmix(images, labels, self.TOXIC, prob=1.0, alpha=1.0)
+        assert torch.equal(result[2], original[2])
+        assert torch.equal(result[3], original[3])
+
+    def test_pasted_values_come_from_same_class(self):
+        # Image 0 filled with 0.0, image 1 filled with 1.0 — both toxic
+        images = torch.zeros(4, 3, 16, 16)
+        images[1] = 1.0
+        images[2] = 2.0  # edible
+        images[3] = 3.0  # edible
+        labels = torch.tensor([0, 0, 1, 1])
+        torch.manual_seed(7)
+        result = _intra_class_cutmix(images, labels, self.TOXIC, prob=1.0, alpha=0.5)
+        # Toxic images (indices 0 and 1) must only contain values from the toxic pair {0.0, 1.0}
+        assert result[0].max().item() <= 1.0 + 1e-6
+        assert result[1].max().item() <= 1.0 + 1e-6
+        # Edible images must be untouched
+        assert torch.equal(result[2], images[2])
+        assert torch.equal(result[3], images[3])
+
+    def test_train_loop_accepts_cutmix_config(self, tmp_path):
+        cfg = _make_train_fixture(tmp_path, _TWO_SPECIES, n_images=16)
+        cfg.cutmix_prob = 0.5
+        cfg.cutmix_alpha = 1.0
+        history = train(cfg)
+        assert len(history) == cfg.epochs
 
 
 # ---------------------------------------------------------------------------
