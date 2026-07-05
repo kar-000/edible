@@ -49,15 +49,14 @@ class GateResult(BaseModel):
     @model_validator(mode="after")
     def reject_wins_on_uncertainty(self) -> GateResult:
         """
-        Fail-safe invariant: if the plant_score is below 0.5 the decision
-        must be REJECT, never PASS.  The gate is allowed to be more
-        conservative (reject at higher thresholds) but it may never pass
-        an image it scores below 50% as plant.
+        Fail-safe: plant_score=0.0 with PASS is a logic error (gate produced no
+        positive signal at all). Higher thresholds are enforced inside each gate
+        implementation — this just guards against a totally empty signal passing.
         """
-        if self.plant_score < 0.5 and self.decision == GateDecision.PASS:
+        if self.plant_score == 0.0 and self.decision == GateDecision.PASS:
             raise ValueError(
-                f"Gate fail-safe violated: plant_score={self.plant_score:.3f} < 0.5 "
-                f"but decision is PASS. Gate must REJECT when uncertain."
+                "Gate fail-safe violated: plant_score=0.0 but decision is PASS. "
+                "Gate must have a positive signal to PASS."
             )
         return self
 

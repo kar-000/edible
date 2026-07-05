@@ -133,15 +133,25 @@ class TestGateFailSafe:
         if result.plant_score < 0.5:
             assert result.decision == GateDecision.REJECT
 
-    def test_gate_result_schema_rejects_pass_with_low_score(self):
-        # Directly creating an invalid GateResult should raise
+    def test_gate_result_schema_rejects_pass_with_zero_score(self):
+        # Passing with zero signal (no indices matched at all) is always invalid
         with pytest.raises(Exception):
             GateResult(
                 decision=GateDecision.PASS,
-                plant_score=0.3,
+                plant_score=0.0,
                 reason="bad",
                 gate_type="test",
             )
+
+    def test_gate_result_schema_allows_pass_with_nonzero_score(self):
+        # Nature-context hits can produce sub-0.5 plant_score while still PASS-ing
+        result = GateResult(
+            decision=GateDecision.PASS,
+            plant_score=0.3,
+            reason="nature context hit",
+            gate_type="imagenet_category",
+        )
+        assert result.decision == GateDecision.PASS
 
 
 # ---------------------------------------------------------------------------

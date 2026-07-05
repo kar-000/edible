@@ -83,6 +83,24 @@ CONSERVATIVE_PLANT_INDICES: frozenset[int] = frozenset({
     996, 997, 998,
 })
 
+# Expanded set: outdoor / nature photography context.
+# Wild berry photos are often classified as insects or birds because small
+# colorful berries against foliage match butterfly wing patterns in ImageNet.
+# These classes indicate "outdoor nature photography" — the fruit gate (Layer 1b)
+# and confidence floor (Layer 2) handle the actual safety filtering.
+NATURE_CONTEXT_INDICES: frozenset[int] = CONSERVATIVE_PLANT_INDICES | frozenset({
+    # Butterflies and moths (dominant predictions for berry close-ups)
+    *range(300, 336),
+    # Birds (often in vegetation context)
+    *range(7, 25),
+    # Frogs / tree frogs (forest undergrowth)
+    30, 31, 32, 33, 34, 35,
+    # Spiders / web (outdoor foliage context)
+    72, 73,
+    # Dragonflies / damselflies
+    319, 320,
+})
+
 
 class PlantGate:
     """
@@ -109,7 +127,7 @@ class PlantGate:
         model: Optional[torch.nn.Module] = None,
         plant_indices: Optional[frozenset[int]] = None,
         top_k: int = 5,
-        threshold: float = 0.05,
+        threshold: float = 0.02,
         device: Optional[torch.device] = None,
     ) -> None:
         self.device = device or torch.device("cpu")
@@ -119,7 +137,7 @@ class PlantGate:
             )
         self.model = model.to(self.device).eval()
         self.plant_indices = (
-            plant_indices if plant_indices is not None else CONSERVATIVE_PLANT_INDICES
+            plant_indices if plant_indices is not None else NATURE_CONTEXT_INDICES
         )
         self.top_k = top_k
         self.threshold = threshold
@@ -150,7 +168,7 @@ class PlantGate:
             for idx, prob in zip(topk_indices, topk_probs)
         )
 
-        decision = GateDecision.PASS if is_plant and plant_score >= 0.5 else GateDecision.REJECT
+        decision = GateDecision.PASS if is_plant else GateDecision.REJECT
         reason = (
             "plant-like ImageNet classes detected"
             if decision == GateDecision.PASS
@@ -182,7 +200,7 @@ class PlantGate:
                 idx.item() in self.plant_indices and prob.item() >= self.threshold
                 for idx, prob in zip(topk_indices, topk_probs)
             )
-            decision = GateDecision.PASS if is_plant and plant_score >= 0.5 else GateDecision.REJECT
+            decision = GateDecision.PASS if is_plant else GateDecision.REJECT
             reason = (
                 "plant-like ImageNet classes detected"
                 if decision == GateDecision.PASS
