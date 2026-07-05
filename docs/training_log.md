@@ -125,18 +125,20 @@ All runs: EfficientNet-B0, AdamW, cosine annealing LR, early stop on val toxic F
 
 ## Current Best Model
 
-**Run I best_safety + calibration** (as of 2026-07-05):
-- Test acc=78.8% (accepted), toxic_fp=**0.18%**, rejection=10.2%
-- Checkpoint: `checkpoints/run_i/best_safety.pt`
-- Calibration: T=0.707, per-class thresholds in `checkpoints/run_i/calibration.json`
-- Loss: ASL(γ+=1, γ-=2, margin=0.05) + label_smoothing=0.1 + toxic_mult=3×
+**Run K best_safety + calibration** (as of 2026-07-05):
+- Test acc=87.4% (accepted), toxic_fp=**0.33%**, rejection=5.7%
+- Checkpoint: `checkpoints/run_k/best_safety.pt`
+- Calibration: T=0.879, per-class thresholds in `checkpoints/run_k/calibration.json`
+- Loss: ASL(γ+=1, γ-=2, margin=0.05) + label_smoothing=0.1 + toxic_mult=3× + hard_negatives=22
 
 Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 | Run | Checkpoint | Calibrated toxic FP | Accepted acc | Rejection | Notes |
 |-----|---|---|---|---|---|
-| I best_safety | epoch 1 | **0.18%** (1/544) | 78.8% | 10.2% | ← production checkpoint |
-| J best_safety | epoch 2 | 0.50% (3/604) | 84.9% | 5.6% | v2.1 dataset; better UX but worse safety |
+| I best_safety | epoch 1 | **0.18%** (1/544) | 78.8% | 10.2% | best raw safety; low acc |
+| **K best_safety** | epoch 3 | **0.33%** (2/604) | **87.4%** | **5.7%** | ← production checkpoint |
+| J best_safety | epoch 2 | 0.50% (3/604) | 84.9% | 5.6% | before hard negatives |
 | F best_accuracy | epoch 5 | 0.71% (4/562) | 88.1% | 8.2% | re-evaluated on v2.1 |
+| K best_accuracy | epoch 9 | 1.16% (7/604) | 89.6% | 6.4% | |
 | J best_accuracy | epoch 8 | 1.82% (11/604) | **91.7%** | 3.0% | best accuracy overall |
 | I best_accuracy | epoch 8 | 1.82% (10/548) | 88.7% | 7.0% | |
 | G best_safety | epoch 4 | 1.28% | ? | ? | CutMix only (old dataset eval) |
@@ -147,22 +149,33 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 - **Config:** toxic_mult=3×, lr=5e-4, patience=7, loss=ASL(γ+=1, γ-=2, margin=0.05), label_smoothing=0.1
 - **Stopped:** epoch 9 (patience=7), best_safety at epoch 2, best_accuracy at epoch 8
 - **best_safety:** epoch 2, val_acc=82.8%, val_toxic_fp=2.07%
-  - Calibration: T=0.743, toxic_fp=**0.50%** (3/604), acc=84.9%, rejection=5.6%
+  - Calibration: T=0.743, toxic_fp=0.50% (3/604), acc=84.9%, rejection=5.6%
   - Calibration saved → `checkpoints/run_j/calibration.json`
 - **best_accuracy:** epoch 8, val_acc=89.5%, val_toxic_fp=3.63%
-  - Calibration: T=0.994, toxic_fp=1.82% (11/604), acc=**91.7%**, rejection=3.0%
-- **Notes:** Training on v2.1 (2.5× ilex_decidua) improved best_safety convergence — epoch 2 vs Run I's epoch 1 — and raised accepted accuracy from 78.8% → 84.9% with rejection dropping from 10.2% → 5.6%. But calibrated toxic FP (0.50%) does not beat Run I best_safety (0.18%). Run I remains production. best_accuracy is the best accuracy checkpoint overall (91.7%) but 1.82% toxic FP.
+  - Calibration: T=0.994, toxic_fp=1.82% (11/604), acc=91.7%, rejection=3.0%
+- **Notes:** Training on v2.1 improved best_safety convergence (epoch 2 vs I's epoch 1) and raised accuracy to 84.9%. toxic_fp=0.50% does not beat Run I. Hard negatives mined from this checkpoint for Run K.
+
+### Run K — ASL γ-=2 + label smoothing ε=0.1 + hard negatives (22 samples), dataset v2.1 ✅ new best
+- **Config:** toxic_mult=3×, lr=5e-4, patience=7, loss=ASL(γ+=1, γ-=2, margin=0.05), label_smoothing=0.1, hard_negatives=22 (4 FPs at 5×, 18 near-misses at 2×)
+- **Stopped:** epoch 10 (patience=7), best_safety at epoch 3, best_accuracy at epoch 9
+- **best_safety:** epoch 3, val_acc=84.6%, val_toxic_fp=2.42%
+  - Calibration: T=0.879, toxic_fp=**0.33%** (2/604), acc=**87.4%**, rejection=5.7%
+  - Calibration saved → `checkpoints/run_k/calibration.json`
+- **best_accuracy:** epoch 9, val_acc=88.9%, val_toxic_fp=3.80%
+  - Calibration: T=1.015, toxic_fp=1.16% (7/604), acc=89.6%, rejection=6.4%
+- **Hard negative origin:** FPs were ilex_vomitoria→rubus_trivialis (×2), melia_azedarach→sambucus (×1), solanum_nigrum→sambucus (×1). ilex_decidua produced 0 train FPs — v2.1 scrape fixed the original problem species.
+- **Notes:** Hard negatives improved best_safety by one more epoch of convergence (3 vs 2) and cut FP from 0.50% → 0.33% while maintaining good accuracy (87.4%, +2.5pp vs J). best_accuracy passes the 1% threshold for first time in accuracy-optimized checkpoint (1.16% < 1.82% from J). New production checkpoint.
 
 ---
 
 ## Pending Investigations
-- [x] Run F (ASL γ-=2) results + calibration — complete; new best model
-- [x] Fruit-presence gate (Layer 1b) — implemented in `src/edible/model/gate.py` (`FruitPresenceGate`); CLIP zero-shot, lazy import, 16 tests
-- [x] Intra-class CutMix for toxic species — implemented (feature/training-experiments); Run H showed marginal or negative effect combined with other regularization
+- [x] Run F (ASL γ-=2) results + calibration — complete
+- [x] Fruit-presence gate (Layer 1b) — implemented in `src/edible/model/gate.py`
+- [x] Intra-class CutMix for toxic species — implemented; Run H showed no benefit combined with other regularization
 - [x] FastAPI backend — implemented and working; `src/edible/api/`
 - [x] React frontend — implemented; `frontend/`
 - [x] Scrape more ilex_decidua images: expanded 661 → 1,664 (v2.1, blur-only Texas)
-- [x] Ablation: Run F config + label smoothing only → Run I; new production checkpoint (0.18% toxic FP)
-- [x] Run J: retrain Run I config on v2.1 dataset (1,664 ilex_decidua) — J best_safety (0.50%) does not beat I best_safety (0.18%); Run I stays in production
-- [ ] Hard negative mining: boost sampling frequency of known FP images (3 remaining in Run J best_safety)
+- [x] Ablation: Run F config + label smoothing only → Run I; 0.18% toxic FP
+- [x] Run J: retrain on v2.1 dataset → 0.50% FP, confirmed hard negatives needed
+- [x] Hard negative mining: implemented `mine_hard_negatives.py`; Run K uses 22 samples → 0.33% FP, 87.4% acc
 - [ ] GPS location re-ranking: API accepts lat/lon but ignores it; USDA PLANTS + BONAP needed

@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 # src/edible/api/app.py → ../../../../
 _REPO_ROOT = Path(__file__).parent.parent.parent.parent
 _DATA_DIR = _REPO_ROOT / "data"
-_DEFAULT_CHECKPOINT = _REPO_ROOT / "checkpoints" / "run_i" / "best_safety.pt"
+_DEFAULT_CHECKPOINT = _REPO_ROOT / "checkpoints" / "run_k" / "best_safety.pt"
 
 _pipeline: Optional[InferencePipeline] = None
 
