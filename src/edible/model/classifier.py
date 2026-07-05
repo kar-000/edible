@@ -48,6 +48,9 @@ class ClassifierConfig:
     asl_gamma_neg: float = 4.0   # focusing strength for false classes (strong)
     asl_margin: float = 0.05     # probability shift: clips easy negatives to 0
 
+    # Label smoothing — applied to both CE and ASL paths.
+    label_smoothing: float = 0.0  # 0 = disabled; 0.1 is a good starting point
+
 
 class EdibleClassifier(nn.Module):
     """
@@ -198,6 +201,7 @@ class AsymmetricLoss(nn.Module):
         margin: float = 0.05,
         toxic_indices: Optional[set[int]] = None,
         toxic_multiplier: float = 3.0,
+        label_smoothing: float = 0.0,
     ) -> None:
         super().__init__()
         self.gamma_pos = gamma_pos
@@ -205,12 +209,15 @@ class AsymmetricLoss(nn.Module):
         self.margin = margin
         self.toxic_indices = toxic_indices or set()
         self.toxic_multiplier = toxic_multiplier
+        self.label_smoothing = label_smoothing
 
     def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         B, C = logits.shape
 
-        # One-hot targets: shape (B, C)
+        # One-hot targets: shape (B, C), optionally smoothed
         targets = F.one_hot(labels, C).float()
+        if self.label_smoothing > 0:
+            targets = targets * (1 - self.label_smoothing) + self.label_smoothing / C
 
         # Per-class sigmoid probability (independent binary treatment)
         probs = torch.sigmoid(logits)
@@ -256,6 +263,7 @@ def build_loss(
     asl_gamma_pos: float = 1.0,
     asl_gamma_neg: float = 4.0,
     asl_margin: float = 0.05,
+    label_smoothing: float = 0.0,
 ) -> nn.Module:
     """
     Build a CrossEntropyLoss with optional toxic-class upweighting.
@@ -283,6 +291,7 @@ def build_loss(
             margin=asl_margin,
             toxic_indices=toxic_indices,
             toxic_multiplier=toxic_multiplier,
+            label_smoothing=label_smoothing,
         )
 
     if class_weights is None:
@@ -294,4 +303,4 @@ def build_loss(
         for idx in toxic_indices:
             weights[idx] *= toxic_multiplier
 
-    return nn.CrossEntropyLoss(weight=weights)
+    return nn.CrossEntropyLoss(weight=weights, label_smoothing=label_smoothing)
