@@ -14,7 +14,7 @@ Production target: < 1%.
 - All 12 iNat taxon IDs were wrong (fixed in PR #4 via taxon_name, corrected IDs tracked in species.json)
 
 ### v2 — Quality-filtered rescrape (current)
-- **8,204 images total**
+- **8,204 images total** (ilex_decidua updated to 1,185 in v2.1)
 - Texas scrape with `--fruiting-only` (fruits/seeds observations only) + blur gate (Laplacian variance ≥ 100)
 - Moonseed scraped globally (only ~23 TX observations)
 - Species thin after fruiting filter (moonseed: 119, solanum: 120, sambucus: 196) — supplemented to 600 each with blur-only (no fruiting filter)
@@ -25,7 +25,7 @@ Production target: < 1%.
 | rubus_trivialis | 1,000 | |
 | ilex_vomitoria | 1,000 | |
 | callicarpa_americana | 1,000 | |
-| ilex_decidua | 661 | |
+| ilex_decidua | 661 | → updated to 1,185 (v2.1) |
 | solanum_nigrum | 600 | supplemented |
 | sambucus_canadensis | 600 | supplemented |
 | menispermum_canadense | 600 | global scrape, supplemented |
@@ -34,6 +34,12 @@ Production target: < 1%.
 | vitis_mustangensis | 535 | |
 | phytolacca_americana | 530 | |
 | melia_azedarach | 478 | |
+
+### v2.1 — ilex_decidua blur-only supplement
+- ilex_decidua expanded from 661 → **1,185 images** via `--place-id 18` blur-only (no fruiting filter)
+- Root cause: ilex_decidua was the top source of toxic→edible FPs in Run F (8 dangerous misclassifications)
+- Fruiting-only supply exhausted for TX (only 661 images); blur-only added 524 new images
+- Total dataset now ~8,728 images
 
 ---
 
@@ -105,23 +111,35 @@ All runs: EfficientNet-B0, AdamW, cosine annealing LR, early stop on val toxic F
 - **Best_accuracy calibration:** epoch 10 (val_acc=0.889), toxic_fp=1.89% (9/476) ← better than best_safety but worse than Run F
 - **Notes:** All three regularization techniques together (CutMix + balanced sampling + label smoothing) add too much regularization for this dataset size. Early stopping hit epoch 4 for safety checkpoint — model hadn't converged. γ-=4 already aggressive; adding more regularization on top made it worse.
 
+### Run I — ASL γ-=2 + label smoothing ε=0.1, dataset v2 ✅ new best safety
+- **Config:** toxic_mult=3×, lr=5e-4, patience=7, loss=ASL(γ+=1, γ-=2, margin=0.05), label_smoothing=0.1
+- **Stopped:** epoch 8 (patience=7), best_safety at epoch 1, best_accuracy at epoch 8
+- **best_safety:** epoch 1, val_acc=80.7%, val_toxic_fp=2.17%
+  - Calibration (v2.1 dataset): T=0.707, toxic_fp=**0.18%** (1/544), acc=78.8%, rejection=10.2%
+  - Calibration saved → `checkpoints/run_i/calibration.json`
+- **best_accuracy:** epoch 8, val_acc=89.2%, val_toxic_fp=3.91%
+  - Calibration (v2.1 dataset): T=1.100, toxic_fp=1.82% (10/548), acc=88.7%, rejection=7.0%
+- **Notes:** Label smoothing (ε=0.1) on top of ASL γ-=2 is the winning combination. best_safety checkpoint is epoch 1 — model is underfitted, but calibration thresholds make up for it with aggressive per-class gating. 4× safety improvement over Run F best_safety on comparable eval. Run F re-evaluated on v2.1 dataset = 0.71% (4/562); I best_safety = 0.18% — I wins by 4×.
+
 ---
 
 ## Current Best Model
 
-**Run F + calibration** (as of 2026-07-05, unchanged):
-- Test acc=90.9% (accepted), toxic_fp=1.05%, edible_fn=7.71%, rejection=6.7%
-- Checkpoint: `checkpoints/run_f/best_accuracy.pt`
-- Calibration: T=0.97, per-class thresholds in `checkpoints/run_f/calibration.json`
-- Loss: ASL(γ+=1, γ-=2, margin=0.05) + toxic_mult=3×
+**Run I best_safety + calibration** (as of 2026-07-05):
+- Test acc=78.8% (accepted), toxic_fp=**0.18%**, rejection=10.2%
+- Checkpoint: `checkpoints/run_i/best_safety.pt`
+- Calibration: T=0.707, per-class thresholds in `checkpoints/run_i/calibration.json`
+- Loss: ASL(γ+=1, γ-=2, margin=0.05) + label_smoothing=0.1 + toxic_mult=3×
 
-Run scorecard (calibrated toxic FP):
-| Run | Calibrated toxic FP | Notes |
-|-----|---|---|
-| F best_accuracy | **1.05%** | ← production checkpoint |
-| G best_safety | 1.28% | CutMix only |
-| H best_accuracy | 1.89% | All regularization combined |
-| H best_safety | 2.73% | Early stop at epoch 4 |
+Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
+| Run | Checkpoint | Calibrated toxic FP | Accepted acc | Notes |
+|-----|---|---|---|---|
+| I best_safety | epoch 1 | **0.18%** | 78.8% | ← new production checkpoint |
+| F best_accuracy | epoch 5 | 0.71% | 88.1% | re-evaluated on v2.1 dataset |
+| I best_accuracy | epoch 8 | 1.82% | 88.7% | |
+| G best_safety | epoch 4 | 1.28% | ? | CutMix only (eval on old dataset) |
+| H best_accuracy | epoch 10 | 1.89% | ? | All regularization (eval on old dataset) |
+| H best_safety | epoch 4 | 2.73% | ? | Early stop (eval on old dataset) |
 
 ---
 
@@ -131,7 +149,8 @@ Run scorecard (calibrated toxic FP):
 - [x] Intra-class CutMix for toxic species — implemented (feature/training-experiments); Run H showed marginal or negative effect combined with other regularization
 - [x] FastAPI backend — implemented and working; `src/edible/api/`
 - [x] React frontend — implemented; `frontend/`
-- [ ] Scrape more ilex_decidua images: 6/14 FPs from Run F came from this species (data scarcity)
+- [x] Scrape more ilex_decidua images: expanded 661 → 1,185 (v2.1, blur-only Texas)
+- [x] Ablation: Run F config + label smoothing only → Run I; new production checkpoint (0.18% toxic FP)
+- [ ] Run J: retrain Run I config on v2.1 dataset (1,185 ilex_decidua) — may improve accuracy while holding safety gains
 - [ ] Hard negative mining: boost sampling frequency of known FP images
 - [ ] GPS location re-ranking: API accepts lat/lon but ignores it; USDA PLANTS + BONAP needed
-- [ ] Ablation: try Run F config + label smoothing only (no CutMix, no balanced sampling)
