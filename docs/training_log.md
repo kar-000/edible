@@ -25,7 +25,7 @@ Production target: < 1%.
 | rubus_trivialis | 1,000 | |
 | ilex_vomitoria | 1,000 | |
 | callicarpa_americana | 1,000 | |
-| ilex_decidua | 661 | → updated to 1,185 (v2.1) |
+| ilex_decidua | 661 | → updated to 1,664 (v2.1) |
 | solanum_nigrum | 600 | supplemented |
 | sambucus_canadensis | 600 | supplemented |
 | menispermum_canadense | 600 | global scrape, supplemented |
@@ -36,10 +36,10 @@ Production target: < 1%.
 | melia_azedarach | 478 | |
 
 ### v2.1 — ilex_decidua blur-only supplement
-- ilex_decidua expanded from 661 → **1,185 images** via `--place-id 18` blur-only (no fruiting filter)
+- ilex_decidua expanded from 661 → **1,664 images** via `--place-id 18` blur-only (no fruiting filter); 1000 new DL, 14 rejected blurry
 - Root cause: ilex_decidua was the top source of toxic→edible FPs in Run F (8 dangerous misclassifications)
-- Fruiting-only supply exhausted for TX (only 661 images); blur-only added 524 new images
-- Total dataset now ~8,728 images
+- Fruiting-only supply exhausted for TX (only 661 images); blur-only added 1003 new images
+- Total dataset now ~9,371 images
 
 ---
 
