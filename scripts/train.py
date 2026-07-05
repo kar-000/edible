@@ -9,6 +9,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -48,7 +49,17 @@ def main() -> None:
     )
     parser.add_argument("--label-smoothing", type=float, default=0.0,
                         help="Label smoothing epsilon; 0=disabled, 0.1 recommended (default 0.0)")
+    parser.add_argument(
+        "--hard-negatives", type=Path, default=None,
+        help="JSON file from mine_hard_negatives.py; boosts sampling of known FP images",
+    )
     args = parser.parse_args()
+
+    hard_negatives: dict = {}
+    if args.hard_negatives and args.hard_negatives.exists():
+        data = json.loads(args.hard_negatives.read_text())
+        repo_root = Path(__file__).parent.parent
+        hard_negatives = {repo_root / k: v for k, v in data["samples"].items()}
 
     cfg = TrainConfig(
         images_dir=DATA_DIR / "images",
@@ -66,6 +77,7 @@ def main() -> None:
         cutmix_prob=args.cutmix_prob if args.cutmix else 0.0,
         cutmix_alpha=args.cutmix_alpha,
         balanced_sampling=args.balanced_sampling,
+        hard_negatives=hard_negatives,
     )
 
     loss_name = "ASL" if args.asl else "WeightedCE"
@@ -76,6 +88,8 @@ def main() -> None:
         extras.append("balanced_sampling=True")
     if args.label_smoothing > 0:
         extras.append(f"label_smoothing={args.label_smoothing}")
+    if hard_negatives:
+        extras.append(f"hard_negatives={len(hard_negatives)}")
     extra_str = ("  " + "  ".join(extras)) if extras else ""
     print(f"loss={loss_name}  lr={args.lr}  toxic_mult={args.toxic_mult}x  "
           f"patience={args.patience}{extra_str}")

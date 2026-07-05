@@ -1,0 +1,33 @@
+{
+  "checkpoint": "checkpoints/run_j/best_safety.pt",
+  "fp_boost": 5.0,
+  "near_miss_boost": 2.0,
+  "counts": {
+    "fps": 4,
+    "near_misses": 18
+  },
+  "samples": {
+    "data/images/ilex_decidua/340994481_620654559.jpg": 2.0,
+    "data/images/ilex_decidua/342849458_624413113.jpg": 2.0,
+    "data/images/ilex_decidua/35014628_55181880.jpg": 2.0,
+    "data/images/ilex_decidua/372000280_679721811.jpg": 2.0,
+    "data/images/ilex_decidua/374488656_684502320.jpg": 2.0,
+    "data/images/ilex_vomitoria/145921591_250755497.jpg": 2.0,
+    "data/images/ilex_vomitoria/214024596_378259593.jpg": 2.0,
+    "data/images/ilex_vomitoria/240585499_428647666.jpg": 2.0,
+    "data/images/ilex_vomitoria/241019025_429488254.jpg": 2.0,
+    "data/images/ilex_vomitoria/251876827_450774194.jpg": 5.0,
+    "data/images/ilex_vomitoria/253400674_453716795.jpg": 2.0,
+    "data/images/ilex_vomitoria/321878199_582518549.jpg": 2.0,
+    "data/images/ilex_vomitoria/356259860_649635244.jpg": 5.0,
+    "data/images/melia_azedarach/198412129_349704475.jpg": 2.0,
+    "data/images/melia_azedarach/233990375_415910276.jpg": 2.0,
+    "data/images/melia_azedarach/246035768_439146335.jpg": 2.0,
+    "data/images/melia_azedarach/3766117_20040447.jpg": 2.0,
+    "data/images/melia_azedarach/41076491_65128489.jpg": 2.0,
+    "data/images/melia_azedarach/44280145_70204680.jpg": 2.0,
+    "data/images/melia_azedarach/66147751_106571547.jpg": 5.0,
+    "data/images/phytolacca_americana/301613708_543512697.jpg": 2.0,
+    "data/images/solanum_nigrum/347618094_633843589.jpg": 5.0
+  }
+}

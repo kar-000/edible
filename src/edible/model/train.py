@@ -133,6 +133,10 @@ class TrainConfig:
     # Balanced batch sampling via WeightedRandomSampler
     balanced_sampling: bool = False
 
+    # Hard negative mining: map image path → boost multiplier applied to sample weight.
+    # Works independently of balanced_sampling (activates sampler on its own if non-empty).
+    hard_negatives: dict = field(default_factory=dict)  # Path → float
+
     # Device
     device: Optional[torch.device] = None
 
@@ -174,8 +178,13 @@ def train(cfg: TrainConfig) -> list[EpochResult]:
         )
 
     class_weights_cpu = train_ds.class_weights()
-    if cfg.balanced_sampling:
-        sample_weights = [class_weights_cpu[s.class_idx].item() for s in train_ds.samples]
+    use_sampler = cfg.balanced_sampling or bool(cfg.hard_negatives)
+    if use_sampler:
+        base = class_weights_cpu if cfg.balanced_sampling else torch.ones(len(class_weights_cpu))
+        sample_weights = [
+            base[s.class_idx].item() * cfg.hard_negatives.get(s.image_path, 1.0)
+            for s in train_ds.samples
+        ]
         sampler = torch.utils.data.WeightedRandomSampler(
             weights=sample_weights,
             num_samples=len(train_ds),

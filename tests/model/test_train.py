@@ -386,6 +386,50 @@ class TestLabelSmoothing:
 
 
 # ---------------------------------------------------------------------------
+# Hard negative mining integration
+# ---------------------------------------------------------------------------
+
+class TestHardNegatives:
+    def test_hard_negatives_training_completes(self, tmp_path):
+        cfg = _make_train_fixture(tmp_path, _TWO_SPECIES, n_images=16)
+        # Inject a path that doesn't exist in the dataset — should be silently ignored
+        cfg.hard_negatives = {tmp_path / "images" / "alpha" / "nonexistent.jpg": 5.0}
+        history = train(cfg)
+        assert len(history) == cfg.epochs
+
+    def test_hard_negatives_with_real_paths(self, tmp_path):
+        cfg = _make_train_fixture(tmp_path, _TWO_SPECIES, n_images=16)
+        # Grab an actual training image path
+        from edible.model.dataset import EdibleDataset
+        ds = EdibleDataset(cfg.images_dir, cfg.species_db_path, split="train")
+        if ds.samples:
+            cfg.hard_negatives = {ds.samples[0].image_path: 5.0}
+        history = train(cfg)
+        assert len(history) == cfg.epochs
+
+    def test_hard_negatives_activates_sampler_without_balanced_sampling(self, tmp_path):
+        cfg = _make_train_fixture(tmp_path, _TWO_SPECIES, n_images=16)
+        cfg.balanced_sampling = False
+        cfg.hard_negatives = {tmp_path / "images" / "alpha" / "img_0000.jpg": 5.0}
+        history = train(cfg)
+        assert len(history) == cfg.epochs
+
+    def test_hard_negatives_composes_with_balanced_sampling(self, tmp_path):
+        cfg = _make_train_fixture(tmp_path, _TWO_SPECIES, n_images=16)
+        cfg.balanced_sampling = True
+        cfg.hard_negatives = {tmp_path / "images" / "alpha" / "img_0000.jpg": 3.0}
+        history = train(cfg)
+        assert len(history) == cfg.epochs
+
+    def test_empty_hard_negatives_no_sampler_activated(self, tmp_path):
+        cfg = _make_train_fixture(tmp_path, _TWO_SPECIES, n_images=16)
+        cfg.balanced_sampling = False
+        cfg.hard_negatives = {}
+        history = train(cfg)
+        assert len(history) == cfg.epochs
+
+
+# ---------------------------------------------------------------------------
 # Constant: TOXIC_FP_ALARM_THRESHOLD
 # ---------------------------------------------------------------------------
 
