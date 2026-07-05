@@ -34,6 +34,8 @@ from pathlib import Path
 from typing import Iterator, Optional
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from edible.data.geocoding import USER_AGENT, NominatimGeocoder
 from edible.data.image_quality import (
@@ -91,6 +93,9 @@ class InatClient:
         rate_limit_s: float = 1.0,
     ) -> None:
         self._session = session or requests.Session()
+        if session is None:
+            retry = Retry(total=5, backoff_factor=2.0, status_forcelist={429, 500, 502, 503, 504})
+            self._session.mount("https://", HTTPAdapter(max_retries=retry))
         self._session.headers.update({"User-Agent": USER_AGENT})
         if api_token:
             self._session.headers.update({"Authorization": f"Bearer {api_token}"})
