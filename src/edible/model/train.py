@@ -130,6 +130,9 @@ class TrainConfig:
     cutmix_prob: float = 0.0   # 0 = disabled
     cutmix_alpha: float = 1.0  # Beta distribution shape parameter
 
+    # Balanced batch sampling via WeightedRandomSampler
+    balanced_sampling: bool = False
+
     # Device
     device: Optional[torch.device] = None
 
@@ -170,13 +173,29 @@ def train(cfg: TrainConfig) -> list[EpochResult]:
             "subdirectories named after species IDs."
         )
 
-    train_loader = DataLoader(
-        train_ds,
-        batch_size=cfg.batch_size,
-        shuffle=True,
-        num_workers=cfg.num_workers,
-        pin_memory=device.type == "cuda",
-    )
+    class_weights_cpu = train_ds.class_weights()
+    if cfg.balanced_sampling:
+        sample_weights = [class_weights_cpu[s.class_idx].item() for s in train_ds.samples]
+        sampler = torch.utils.data.WeightedRandomSampler(
+            weights=sample_weights,
+            num_samples=len(train_ds),
+            replacement=True,
+        )
+        train_loader = DataLoader(
+            train_ds,
+            batch_size=cfg.batch_size,
+            sampler=sampler,
+            num_workers=cfg.num_workers,
+            pin_memory=device.type == "cuda",
+        )
+    else:
+        train_loader = DataLoader(
+            train_ds,
+            batch_size=cfg.batch_size,
+            shuffle=True,
+            num_workers=cfg.num_workers,
+            pin_memory=device.type == "cuda",
+        )
     val_loader = DataLoader(
         val_ds,
         batch_size=cfg.batch_size,
@@ -195,10 +214,9 @@ def train(cfg: TrainConfig) -> list[EpochResult]:
     cfg.classifier_config.num_classes = num_classes
     model = build_classifier(cfg.classifier_config).to(device)
 
-    class_weights = train_ds.class_weights().to(device)
     cc = cfg.classifier_config
     criterion = build_loss(
-        class_weights=class_weights,
+        class_weights=class_weights_cpu.to(device),
         toxic_indices=toxic_indices,
         toxic_multiplier=cc.toxic_loss_multiplier or 2.0,
         num_classes=num_classes,
@@ -206,6 +224,7 @@ def train(cfg: TrainConfig) -> list[EpochResult]:
         asl_gamma_pos=cc.asl_gamma_pos,
         asl_gamma_neg=cc.asl_gamma_neg,
         asl_margin=cc.asl_margin,
+        label_smoothing=cc.label_smoothing,
     ).to(device)
 
     optimizer = torch.optim.AdamW(

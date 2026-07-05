@@ -331,6 +331,61 @@ class TestIntraClassCutmix:
 
 
 # ---------------------------------------------------------------------------
+# Balanced sampling
+# ---------------------------------------------------------------------------
+
+class TestBalancedSampling:
+    def test_balanced_sampling_completes(self, tmp_path):
+        cfg = _make_train_fixture(tmp_path, _TWO_SPECIES, n_images=16)
+        cfg.balanced_sampling = True
+        history = train(cfg)
+        assert len(history) == cfg.epochs
+
+    def test_unbalanced_and_balanced_same_epoch_count(self, tmp_path):
+        (tmp_path / "a").mkdir()
+        (tmp_path / "b").mkdir()
+        cfg_a = _make_train_fixture(tmp_path / "a", _TWO_SPECIES, n_images=16)
+        cfg_b = _make_train_fixture(tmp_path / "b", _TWO_SPECIES, n_images=16)
+        cfg_b.balanced_sampling = True
+        assert len(train(cfg_a)) == len(train(cfg_b))
+
+
+# ---------------------------------------------------------------------------
+# Label smoothing
+# ---------------------------------------------------------------------------
+
+class TestLabelSmoothing:
+    def test_label_smoothing_ce_completes(self, tmp_path):
+        cfg = _make_train_fixture(tmp_path, _TWO_SPECIES, n_images=16)
+        cfg.classifier_config.label_smoothing = 0.1
+        history = train(cfg)
+        assert len(history) == cfg.epochs
+
+    def test_label_smoothing_asl_completes(self, tmp_path):
+        cfg = _make_train_fixture(tmp_path, _TWO_SPECIES, n_images=16)
+        cfg.classifier_config.use_asl = True
+        cfg.classifier_config.label_smoothing = 0.1
+        history = train(cfg)
+        assert len(history) == cfg.epochs
+
+    def test_smoothed_asl_loss_differs_from_unsmoothed(self):
+        from edible.model.classifier import AsymmetricLoss
+        logits = torch.randn(8, 4)
+        labels = torch.randint(0, 4, (8,))
+        loss_hard = AsymmetricLoss(label_smoothing=0.0)(logits, labels)
+        loss_smooth = AsymmetricLoss(label_smoothing=0.1)(logits, labels)
+        assert not torch.isclose(loss_hard, loss_smooth)
+
+    def test_smoothed_ce_loss_differs_from_unsmoothed(self):
+        import torch.nn as nn
+        logits = torch.randn(8, 4)
+        labels = torch.randint(0, 4, (8,))
+        loss_hard = nn.CrossEntropyLoss(label_smoothing=0.0)(logits, labels)
+        loss_smooth = nn.CrossEntropyLoss(label_smoothing=0.1)(logits, labels)
+        assert not torch.isclose(loss_hard, loss_smooth)
+
+
+# ---------------------------------------------------------------------------
 # Constant: TOXIC_FP_ALARM_THRESHOLD
 # ---------------------------------------------------------------------------
 
