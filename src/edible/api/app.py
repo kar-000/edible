@@ -35,7 +35,9 @@ from fastapi.responses import JSONResponse
 from PIL import Image as PILImage
 
 from edible.api.inference import InferencePipeline
+from edible.data.geocoding import NominatimGeocoder
 from edible.data.pipeline import InferenceResult
+from edible.data.range_check import CountyRangeChecker
 from edible.data.schemas import load_lookalike_db, load_species_db
 
 logger = logging.getLogger(__name__)
@@ -105,6 +107,19 @@ def _build_pipeline() -> InferencePipeline:
             "Loaded calibration: T=%.4f, %d thresholds", temperature, len(per_class_thresholds)
         )
 
+    # County-level GPS re-ranking (optional — skipped if county_range.json absent)
+    county_range_path = _DATA_DIR / "county_range.json"
+    county_range_checker = CountyRangeChecker(county_range_path)
+    geocoder = NominatimGeocoder() if len(county_range_checker) > 0 else None
+    if geocoder:
+        logger.info(
+            "County range data loaded: %d species from %s",
+            len(county_range_checker),
+            county_range_path.name,
+        )
+    else:
+        logger.info("No county_range.json found — GPS re-ranking disabled")
+
     return InferencePipeline(
         plant_gate=plant_gate,
         fruit_gate=fruit_gate,
@@ -118,6 +133,8 @@ def _build_pipeline() -> InferencePipeline:
         lookalike_db=lookalike_db,
         temperature=temperature,
         per_class_thresholds=per_class_thresholds,
+        geocoder=geocoder,
+        county_range_checker=county_range_checker if geocoder else None,
     )
 
 

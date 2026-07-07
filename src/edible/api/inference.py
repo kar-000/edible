@@ -21,6 +21,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image as PILImage
 
+from edible.data.geocoding import NominatimGeocoder
 from edible.data.pipeline import (
     FruitGateResult,
     GateDecision,
@@ -29,9 +30,11 @@ from edible.data.pipeline import (
     LookAlikeWarning,
     RejectionReason,
 )
+from edible.data.range_check import CountyRangeChecker
 from edible.data.schemas import Edibility, LookAlikeDatabase, SpeciesDatabase
 
 DEFAULT_CONFIDENCE_FLOOR = 0.75
+DEFAULT_LOCATION_PENALTY = 0.5  # multiply confidence by this when species is out of range
 
 
 class InferencePipeline:
@@ -65,6 +68,16 @@ class InferencePipeline:
     per_class_thresholds:
         Maps species_id → minimum calibrated confidence to accept that
         prediction.  Species not listed fall back to DEFAULT_CONFIDENCE_FLOOR.
+    geocoder:
+        Optional Nominatim geocoder for lat/lon → county resolution.
+        If None, location re-ranking is skipped.
+    county_range_checker:
+        Optional static county-level presence checker.
+        If None, location re-ranking is skipped.
+    location_penalty:
+        Confidence multiplier applied when the predicted species is not
+        recorded in the user's county.  Default 0.5 (halves confidence,
+        which typically pushes borderline predictions below threshold).
     """
 
     def __init__(
@@ -81,6 +94,9 @@ class InferencePipeline:
         lookalike_db: LookAlikeDatabase,
         temperature: float = 1.0,
         per_class_thresholds: Optional[dict[str, float]] = None,
+        geocoder: Optional[NominatimGeocoder] = None,
+        county_range_checker: Optional[CountyRangeChecker] = None,
+        location_penalty: float = DEFAULT_LOCATION_PENALTY,
     ) -> None:
         self.plant_gate = plant_gate
         self.fruit_gate = fruit_gate
@@ -94,6 +110,9 @@ class InferencePipeline:
         self.lookalike_db = lookalike_db
         self.temperature = temperature
         self.per_class_thresholds = per_class_thresholds or {}
+        self.geocoder = geocoder
+        self.county_range_checker = county_range_checker
+        self.location_penalty = location_penalty
 
     def run(
         self,
@@ -109,8 +128,12 @@ class InferencePipeline:
         image:
             Raw RGB image from the user.
         lat, lon:
-            Optional GPS coordinates (accepted but not yet used for
-            location re-ranking — deferred to Phase 4).
+            Optional GPS coordinates.  When both are provided and a
+            ``geocoder`` + ``county_range_checker`` are wired in, the
+            predicted species is checked against county-level range data.
+            If it is not recorded in that county, confidence is multiplied
+            by ``location_penalty`` (default 0.5), which typically pushes
+            borderline predictions below the Layer 2 threshold.
         """
         rgb = image.convert("RGB")
 
@@ -144,6 +167,27 @@ class InferencePipeline:
         clf_tensor = self.classifier_transform(rgb)
         top_species_id, scaled_conf, top_edibility = self._classify(clf_tensor)
 
+        # Location re-ranking: soft confidence penalty for out-of-range species.
+        # Fail-safe: any geocoding error → skip penalty (never reject valid input).
+        is_out_of_range = False
+        if (
+            lat is not None
+            and lon is not None
+            and self.geocoder is not None
+            and self.county_range_checker is not None
+        ):
+            try:
+                geo = self.geocoder.reverse_geocode(lat, lon)
+                if geo.county:
+                    in_range = self.county_range_checker.is_in_county(
+                        top_species_id, geo.county, geo.state_code
+                    )
+                    if in_range is False:
+                        scaled_conf *= self.location_penalty
+                        is_out_of_range = True
+            except Exception:
+                pass  # geocoding failure → no penalty
+
         # Layer 2: confidence floor (per-class threshold or default 75%)
         threshold = self.per_class_thresholds.get(top_species_id, DEFAULT_CONFIDENCE_FLOOR)
         if scaled_conf < threshold:
@@ -154,6 +198,7 @@ class InferencePipeline:
                     f"I'm not confident enough to identify this safely "
                     f"({scaled_conf:.0%} confidence). Do not eat it."
                 ),
+                is_out_of_range=is_out_of_range,
             )
 
         # Look-alike warnings
@@ -171,6 +216,7 @@ class InferencePipeline:
             species_common=common_name,
             edibility=top_edibility,
             confidence=scaled_conf,
+            is_out_of_range=is_out_of_range,
             lookalike_warnings=warnings,
         )
 

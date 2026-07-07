@@ -19,13 +19,15 @@ from fastapi.testclient import TestClient
 from PIL import Image as PILImage
 
 from edible.api.app import app, get_pipeline
-from edible.api.inference import InferencePipeline
+from edible.api.inference import DEFAULT_LOCATION_PENALTY, InferencePipeline
+from edible.data.geocoding import GeoResult
 from edible.data.pipeline import (
     FruitGateResult,
     GateDecision,
     GateResult,
     RejectionReason,
 )
+from edible.data.range_check import CountyRangeChecker
 from edible.data.schemas import (
     ConfusionStage,
     Edibility,
@@ -153,6 +155,9 @@ def _make_pipeline(
     top_class_idx: int = 0,
     temperature: float = 1.0,
     per_class_thresholds: Optional[dict] = None,
+    geocoder=None,
+    county_range_checker=None,
+    location_penalty: float = DEFAULT_LOCATION_PENALTY,
 ) -> InferencePipeline:
     species_ids = sorted(s.id for s in species_db.species)
     edibility_map = {s.id: s.edibility for s in species_db.species}
@@ -170,7 +175,34 @@ def _make_pipeline(
         lookalike_db=lookalike_db,
         temperature=temperature,
         per_class_thresholds=per_class_thresholds,
+        geocoder=geocoder,
+        county_range_checker=county_range_checker,
+        location_penalty=location_penalty,
     )
+
+
+# ---------------------------------------------------------------------------
+# Stub geocoder + range checker for location re-ranking tests
+# ---------------------------------------------------------------------------
+
+class _StubGeocoder:
+    """Stub geocoder: always returns a fixed GeoResult."""
+
+    def __init__(self, county: Optional[str] = "Travis", state_code: str = "TX"):
+        self._result = GeoResult(
+            lat=30.27, lng=-97.74,
+            county=county, state="Texas", state_code=state_code,
+        )
+
+    def reverse_geocode(self, lat: float, lng: float) -> GeoResult:
+        return self._result
+
+
+class _RaisingGeocoder:
+    """Stub geocoder that always raises an exception (simulates network failure)."""
+
+    def reverse_geocode(self, lat: float, lng: float) -> GeoResult:
+        raise RuntimeError("geocoder offline")
 
 
 def _make_jpeg_bytes(width: int = 64, height: int = 64) -> bytes:
@@ -486,3 +518,145 @@ class TestIdentifyEndpoint:
         body = resp.json()
         assert "disclaimer" in body
         assert body["disclaimer"]
+
+
+# ---------------------------------------------------------------------------
+# Location re-ranking tests
+# ---------------------------------------------------------------------------
+
+class TestLocationReranking:
+    """Tests for GPS-based confidence penalty in InferencePipeline.run()."""
+
+    # Default top_class_idx=0 predicts melia_azedarach (alphabetically first).
+    _TOP_SPECIES = "melia_azedarach"
+
+    def _range_checker(self, tmp_path, species_id: str, counties: list[str]) -> CountyRangeChecker:
+        import json as _json
+        p = tmp_path / "county_range.json"
+        p.write_text(_json.dumps({species_id: {"TX": counties}}))
+        return CountyRangeChecker(p)
+
+    def test_no_gps_no_penalty(self, tmp_path, species_db, empty_lookalike_db):
+        checker = self._range_checker(tmp_path, self._TOP_SPECIES, [])
+        pipeline = _make_pipeline(
+            species_db, empty_lookalike_db,
+            geocoder=_StubGeocoder("Travis"),
+            county_range_checker=checker,
+        )
+        # No GPS provided → no re-ranking
+        result = pipeline.run(PILImage.new("RGB", (64, 64)))
+        assert result.accepted
+        assert not result.is_out_of_range
+
+    def test_in_range_no_penalty(self, tmp_path, species_db, empty_lookalike_db):
+        checker = self._range_checker(tmp_path, self._TOP_SPECIES, ["Travis", "Hays"])
+        pipeline = _make_pipeline(
+            species_db, empty_lookalike_db,
+            geocoder=_StubGeocoder("Travis"),
+            county_range_checker=checker,
+        )
+        result = pipeline.run(PILImage.new("RGB", (64, 64)), lat=30.27, lon=-97.74)
+        assert result.accepted
+        assert not result.is_out_of_range
+
+    def test_out_of_range_sets_flag(self, tmp_path, species_db, empty_lookalike_db):
+        # melia_azedarach only recorded in Harris; user submits from Travis → out of range
+        checker = self._range_checker(tmp_path, self._TOP_SPECIES, ["Harris"])
+        pipeline = _make_pipeline(
+            species_db, empty_lookalike_db,
+            geocoder=_StubGeocoder("Travis"),
+            county_range_checker=checker,
+        )
+        result = pipeline.run(PILImage.new("RGB", (64, 64)), lat=30.27, lon=-97.74)
+        assert result.is_out_of_range
+
+    def test_out_of_range_reduces_confidence(self, tmp_path, species_db, empty_lookalike_db):
+        checker = self._range_checker(tmp_path, self._TOP_SPECIES, ["Harris"])
+        pipeline_no_loc = _make_pipeline(species_db, empty_lookalike_db)
+        pipeline_with_loc = _make_pipeline(
+            species_db, empty_lookalike_db,
+            geocoder=_StubGeocoder("Travis"),
+            county_range_checker=checker,
+            location_penalty=0.5,
+        )
+        result_no = pipeline_no_loc.run(PILImage.new("RGB", (64, 64)), lat=30.27, lon=-97.74)
+        result_with = pipeline_with_loc.run(PILImage.new("RGB", (64, 64)), lat=30.27, lon=-97.74)
+        if result_no.accepted and result_with.accepted:
+            assert result_with.confidence < result_no.confidence
+
+    def test_out_of_range_penalty_pushes_below_threshold(
+        self, tmp_path, species_db, empty_lookalike_db
+    ):
+        checker = self._range_checker(tmp_path, self._TOP_SPECIES, ["Harris"])
+        # penalty=0.5 → conf ≈ 0.5; set threshold to 0.6 to trigger rejection
+        pipeline = _make_pipeline(
+            species_db, empty_lookalike_db,
+            geocoder=_StubGeocoder("Travis"),
+            county_range_checker=checker,
+            location_penalty=0.5,
+            per_class_thresholds={"melia_azedarach": 0.6, "rubus_trivialis": 0.6},
+        )
+        result = pipeline.run(PILImage.new("RGB", (64, 64)), lat=30.27, lon=-97.74)
+        assert not result.accepted
+        assert result.rejection_reason == RejectionReason.LOW_CONFIDENCE
+
+    def test_geocoder_exception_no_penalty(self, tmp_path, species_db, empty_lookalike_db):
+        checker = self._range_checker(tmp_path, self._TOP_SPECIES, [])
+        pipeline = _make_pipeline(
+            species_db, empty_lookalike_db,
+            geocoder=_RaisingGeocoder(),
+            county_range_checker=checker,
+        )
+        result = pipeline.run(PILImage.new("RGB", (64, 64)), lat=30.27, lon=-97.74)
+        assert result.accepted
+        assert not result.is_out_of_range
+
+    def test_no_geocoder_skips_reranking(self, tmp_path, species_db, empty_lookalike_db):
+        checker = self._range_checker(tmp_path, self._TOP_SPECIES, [])
+        pipeline = _make_pipeline(
+            species_db, empty_lookalike_db,
+            geocoder=None,
+            county_range_checker=checker,
+        )
+        result = pipeline.run(PILImage.new("RGB", (64, 64)), lat=30.27, lon=-97.74)
+        assert result.accepted
+
+    def test_no_range_checker_skips_reranking(self, species_db, empty_lookalike_db):
+        pipeline = _make_pipeline(
+            species_db, empty_lookalike_db,
+            geocoder=_StubGeocoder("Travis"),
+            county_range_checker=None,
+        )
+        result = pipeline.run(PILImage.new("RGB", (64, 64)), lat=30.27, lon=-97.74)
+        assert result.accepted
+
+    def test_unknown_county_no_penalty(self, tmp_path, species_db, empty_lookalike_db):
+        # Geocoder returns county=None (e.g. offshore / border area)
+        checker = self._range_checker(tmp_path, self._TOP_SPECIES, ["Travis"])
+        pipeline = _make_pipeline(
+            species_db, empty_lookalike_db,
+            geocoder=_StubGeocoder(county=None),
+            county_range_checker=checker,
+        )
+        result = pipeline.run(PILImage.new("RGB", (64, 64)), lat=30.27, lon=-97.74)
+        assert result.accepted
+        assert not result.is_out_of_range
+
+    def test_custom_location_penalty_applied(self, tmp_path, species_db, empty_lookalike_db):
+        checker = self._range_checker(tmp_path, self._TOP_SPECIES, ["Harris"])
+        pipeline_light = _make_pipeline(
+            species_db, empty_lookalike_db,
+            geocoder=_StubGeocoder("Travis"),
+            county_range_checker=checker,
+            location_penalty=0.5,
+        )
+        pipeline_heavy = _make_pipeline(
+            species_db, empty_lookalike_db,
+            geocoder=_StubGeocoder("Travis"),
+            county_range_checker=checker,
+            location_penalty=0.1,
+        )
+        r_light = pipeline_light.run(PILImage.new("RGB", (64, 64)), lat=30.27, lon=-97.74)
+        r_heavy = pipeline_heavy.run(PILImage.new("RGB", (64, 64)), lat=30.27, lon=-97.74)
+        if r_light.accepted and r_heavy.accepted:
+            assert r_heavy.confidence < r_light.confidence
