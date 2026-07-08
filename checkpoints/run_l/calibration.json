@@ -1,0 +1,11 @@
+{
+  "checkpoint": "checkpoints/run_l/best_safety.pt",
+  "temperature": 0.990067,
+  "thresholds": {
+    "callicarpa_americana": 0.604972,
+    "celtis_laevigata": 0.469937,
+    "rubus_trivialis": 0.846459,
+    "sambucus_canadensis": 0.32531,
+    "vitis_mustangensis": 0.617397
+  }
+}

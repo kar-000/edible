@@ -125,6 +125,11 @@ All runs: EfficientNet-B0, AdamW, cosine annealing LR, early stop on val toxic F
 
 ## Current Best Model
 
+**Run K best_safety + calibration** (as of 2026-07-07):
+- Run L did not beat Run K on safety (0.50% vs 0.33%). Hard negative mining is plateauing.
+- Run L best_accuracy is the best balanced checkpoint we've ever produced (92.7% acc, 0.66% FP).
+- **Production recommendation**: Run K best_safety for safety-critical path; Run L best_accuracy if UX is priority.
+
 **Run K best_safety + calibration** (as of 2026-07-05):
 - Test acc=87.4% (accepted), toxic_fp=**0.33%**, rejection=5.7%
 - Checkpoint: `checkpoints/run_k/best_safety.pt`
@@ -136,10 +141,12 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 |-----|---|---|---|---|---|
 | I best_safety | epoch 1 | **0.18%** (1/544) | 78.8% | 10.2% | best raw safety; low acc |
 | **K best_safety** | epoch 3 | **0.33%** (2/604) | **87.4%** | **5.7%** | ← production checkpoint |
+| L best_safety | epoch 3 | 0.50% (3/604) | 87.7% | 6.8% | hard negatives from K; no safety gain |
 | J best_safety | epoch 2 | 0.50% (3/604) | 84.9% | 5.6% | before hard negatives |
 | F best_accuracy | epoch 5 | 0.71% (4/562) | 88.1% | 8.2% | re-evaluated on v2.1 |
+| **L best_accuracy** | epoch 10 | **0.66%** (4/604) | **92.7%** | 8.6% | ← best balanced checkpoint |
 | K best_accuracy | epoch 9 | 1.16% (7/604) | 89.6% | 6.4% | |
-| J best_accuracy | epoch 8 | 1.82% (11/604) | **91.7%** | 3.0% | best accuracy overall |
+| J best_accuracy | epoch 8 | 1.82% (11/604) | 91.7% | 3.0% | |
 | I best_accuracy | epoch 8 | 1.82% (10/548) | 88.7% | 7.0% | |
 | G best_safety | epoch 4 | 1.28% | ? | ? | CutMix only (old dataset eval) |
 | H best_accuracy | epoch 10 | 1.89% | ? | ? | All regularization (old dataset eval) |
@@ -168,6 +175,19 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 
 ---
 
+### Run L — ASL γ-=2 + label smoothing ε=0.1 + hard negatives from Run K (20 samples), dataset v2.1
+- **Config:** toxic_mult=3×, lr=5e-4, patience=7, loss=ASL(γ+=1, γ-=2, margin=0.05), label_smoothing=0.1, hard_negatives=20 (2 FPs at 5×, 18 near-misses at 2×)
+- **FP origin (mined from K):** ilex_vomitoria→mahonia_trifoliolata (×1), solanum_nigrum→callicarpa_americana (×1) — different confusions than K's FPs
+- **Stopped:** epoch 10 (patience=7 on toxic FP), best_safety at epoch 3, best_accuracy at epoch 10
+- **best_safety:** epoch 3, val_acc=0.835, val_toxic_fp=2.07%
+  - Calibration: T=0.990, toxic_fp=**0.50%** (3/604), acc=87.7%, rejection=6.8%
+  - Calibration saved → `checkpoints/run_l/calibration.json`
+- **best_accuracy:** epoch 10, val_acc=0.873, val_toxic_fp=2.59%
+  - Calibration: T=1.194, toxic_fp=**0.66%** (4/604), acc=**92.7%**, rejection=8.6%
+- **Notes:** Hard negative mining has plateaued on the safety path — best_safety went 0.50% → 0.50% (no improvement from K). But best_accuracy jumped from 89.6% (K) to 92.7% with FP dropping from 1.16% → 0.66% — the best balanced checkpoint produced. Conclusion: further hard negative iterations unlikely to move the safety needle. Next technique: SupCon or additional data.
+
+---
+
 ## Pending Investigations
 - [x] Run F (ASL γ-=2) results + calibration — complete
 - [x] Fruit-presence gate (Layer 1b) — implemented in `src/edible/model/gate.py`
@@ -178,4 +198,6 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 - [x] Ablation: Run F config + label smoothing only → Run I; 0.18% toxic FP
 - [x] Run J: retrain on v2.1 dataset → 0.50% FP, confirmed hard negatives needed
 - [x] Hard negative mining: implemented `mine_hard_negatives.py`; Run K uses 22 samples → 0.33% FP, 87.4% acc
-- [ ] GPS location re-ranking: API accepts lat/lon but ignores it; USDA PLANTS + BONAP needed
+- [x] GPS location re-ranking: implemented; CountyRangeChecker + NominatimGeocoder; county_range.json built for all 12 TX species
+- [x] Run L: hard negatives from K → safety plateaued (0.50%), but best_accuracy hit 92.7% (best ever)
+- [ ] SupCon (Supervised Contrastive Learning): next technique to push through accuracy ceiling without hurting safety

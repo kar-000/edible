@@ -1,0 +1,31 @@
+{
+  "checkpoint": "checkpoints/run_k/best_safety.pt",
+  "fp_boost": 5.0,
+  "near_miss_boost": 2.0,
+  "counts": {
+    "fps": 2,
+    "near_misses": 18
+  },
+  "samples": {
+    "data/images/ilex_decidua/102802259_171927694.jpg": 2.0,
+    "data/images/ilex_decidua/24586775_38018823.jpg": 2.0,
+    "data/images/ilex_decidua/336159476_610817412.jpg": 2.0,
+    "data/images/ilex_decidua/343714528_626166710.jpg": 2.0,
+    "data/images/ilex_decidua/347075594_632769115.jpg": 2.0,
+    "data/images/ilex_decidua/368042561_672177769.jpg": 2.0,
+    "data/images/ilex_vomitoria/226799125_402272287.jpg": 2.0,
+    "data/images/ilex_vomitoria/324064187_586474605.jpg": 5.0,
+    "data/images/ilex_vomitoria/339198794_616994554.jpg": 2.0,
+    "data/images/menispermum_canadense/316169105_571212228.jpg": 2.0,
+    "data/images/menispermum_canadense/362212327_661079126.jpg": 2.0,
+    "data/images/menispermum_canadense/365746773_667788186.jpg": 2.0,
+    "data/images/menispermum_canadense/98815462_164602579.jpg": 2.0,
+    "data/images/phytolacca_americana/78640038_128721221.jpg": 2.0,
+    "data/images/solanum_nigrum/141184013_241806713.jpg": 2.0,
+    "data/images/solanum_nigrum/240279272_428012576.jpg": 2.0,
+    "data/images/solanum_nigrum/260969671_468755662.jpg": 2.0,
+    "data/images/solanum_nigrum/269696220_484950340.jpg": 5.0,
+    "data/images/solanum_nigrum/297309732_535428513.jpg": 2.0,
+    "data/images/solanum_nigrum/308273444_556148244.jpg": 2.0
+  }
+}
