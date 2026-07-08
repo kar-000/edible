@@ -126,9 +126,9 @@ All runs: EfficientNet-B0, AdamW, cosine annealing LR, early stop on val toxic F
 ## Current Best Model
 
 **Run K best_safety + calibration** (as of 2026-07-07):
-- Run L did not beat Run K on safety (0.50% vs 0.33%). Hard negative mining is plateauing.
-- Run L best_accuracy is the best balanced checkpoint we've ever produced (92.7% acc, 0.66% FP).
-- **Production recommendation**: Run K best_safety for safety-critical path; Run L best_accuracy if UX is priority.
+- Run M (SupCon) pushed accuracy to a new high (94.1% accepted acc) but did not beat Run K on safety (0.99–1.49% FP vs 0.33%).
+- SupCon succeeds at class separation / accuracy; the toxic safety floor requires a different lever (hard negatives, more data, or higher toxic_mult in Phase 1).
+- **Production recommendation**: Run K best_safety for safety-critical path; Run M best_accuracy for highest-accuracy deployment.
 
 **Run K best_safety + calibration** (as of 2026-07-05):
 - Test acc=87.4% (accepted), toxic_fp=**0.33%**, rejection=5.7%
@@ -139,13 +139,15 @@ All runs: EfficientNet-B0, AdamW, cosine annealing LR, early stop on val toxic F
 Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 | Run | Checkpoint | Calibrated toxic FP | Accepted acc | Rejection | Notes |
 |-----|---|---|---|---|---|
-| I best_safety | epoch 1 | **0.18%** (1/544) | 78.8% | 10.2% | best raw safety; low acc |
-| **K best_safety** | epoch 3 | **0.33%** (2/604) | **87.4%** | **5.7%** | ← production checkpoint |
+| I best_safety | epoch 1 | 0.18% (1/544) | 78.8% | 10.2% | best raw safety; low acc |
+| **K best_safety** | epoch 3 | **0.33%** (2/604) | 87.4% | 5.7% | ← **production (safety)** |
 | L best_safety | epoch 3 | 0.50% (3/604) | 87.7% | 6.8% | hard negatives from K; no safety gain |
 | J best_safety | epoch 2 | 0.50% (3/604) | 84.9% | 5.6% | before hard negatives |
 | F best_accuracy | epoch 5 | 0.71% (4/562) | 88.1% | 8.2% | re-evaluated on v2.1 |
-| **L best_accuracy** | epoch 10 | **0.66%** (4/604) | **92.7%** | 8.6% | ← best balanced checkpoint |
+| L best_accuracy | epoch 10 | 0.66% (4/604) | 92.7% | 8.6% | |
 | K best_accuracy | epoch 9 | 1.16% (7/604) | 89.6% | 6.4% | |
+| **M best_accuracy** ✦SupCon | epoch 16 | **0.99%** (6/604) | **94.1%** | 5.6% | ← **best accuracy** |
+| M best_safety ✦SupCon | epoch 11 | 1.49% (9/604) | 93.6% | 4.7% | best_accuracy safer than best_safety |
 | J best_accuracy | epoch 8 | 1.82% (11/604) | 91.7% | 3.0% | |
 | I best_accuracy | epoch 8 | 1.82% (10/548) | 88.7% | 7.0% | |
 | G best_safety | epoch 4 | 1.28% | ? | ? | CutMix only (old dataset eval) |
@@ -186,6 +188,20 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
   - Calibration: T=1.194, toxic_fp=**0.66%** (4/604), acc=**92.7%**, rejection=8.6%
 - **Notes:** Hard negative mining has plateaued on the safety path — best_safety went 0.50% → 0.50% (no improvement from K). But best_accuracy jumped from 89.6% (K) to 92.7% with FP dropping from 1.16% → 0.66% — the best balanced checkpoint produced. Conclusion: further hard negative iterations unlikely to move the safety needle. Next technique: SupCon or additional data.
 
+### Run M — SupCon Phase 1 (20 epochs) + ASL Phase 2, dataset v2.1 ✅ new accuracy high
+- **Phase 1 config:** τ=0.07, toxic_mult=2×, proj 1280→256→128, batch_size=64, epochs=20, lr=1e-3, CosineAnnealingLR
+  - Loss: 5.13 → 2.62 (converging, still slowly descending at epoch 20)
+  - Saved → `checkpoints/run_m/supcon_backbone.pt`
+- **Phase 2 config:** toxic_mult=3×, lr=5e-4, patience=7, loss=ASL(γ+=1, γ-=2, margin=0.05), label_smoothing=0.1
+  - Epoch 1 val_acc=0.883 — substantially higher than all prior runs at epoch 1 (Run L: 0.765)
+  - Stopped: epoch 18 (patience=7), best_safety at epoch 11, best_accuracy at epoch 16
+- **best_safety:** epoch 11, val_acc=0.905, val_toxic_fp=2.25%
+  - Calibration: T=1.048, toxic_fp=**1.49%** (9/604), acc=**93.6%**, rejection=4.7%
+  - Calibration saved → `checkpoints/run_m/calibration.json`
+- **best_accuracy:** epoch 16, val_acc=0.915, val_toxic_fp=2.76%
+  - Calibration: T=1.149, toxic_fp=**0.99%** (6/604), acc=**94.1%**, rejection=5.6%
+- **Notes:** SupCon dramatically improved accuracy (+6.7pp vs K best_safety: 94.1% vs 87.4%) and pushed uncalibrated accuracy to 92.6% at epoch 1. However, toxic FP on the safety path went UP (1.49% vs K's 0.33%) — SupCon improves general class separation but the toxic safety floor needs targeted techniques. Unusual: best_accuracy (0.99% FP) is safer than best_safety (1.49%) post-calibration; the well-trained feature space allows tighter thresholds at epoch 16. Run K best_safety remains production for safety-critical deployment. Run M best_accuracy is the highest-accuracy checkpoint produced. Next: SupCon + hard negatives combined, or higher Phase 1 toxic_mult.
+
 ---
 
 ## Pending Investigations
@@ -200,4 +216,5 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 - [x] Hard negative mining: implemented `mine_hard_negatives.py`; Run K uses 22 samples → 0.33% FP, 87.4% acc
 - [x] GPS location re-ranking: implemented; CountyRangeChecker + NominatimGeocoder; county_range.json built for all 12 TX species
 - [x] Run L: hard negatives from K → safety plateaued (0.50%), but best_accuracy hit 92.7% (best ever)
-- [ ] SupCon (Supervised Contrastive Learning): next technique to push through accuracy ceiling without hurting safety
+- [x] Run M (SupCon): Phase 1 contrastive pre-training (20 epochs, τ=0.07, toxic_mult=2×) → Phase 2 ASL fine-tune → best_accuracy 94.1% (new high), toxic FP 0.99%; safety floor 1.49% (did not beat K)
+- [ ] SupCon v2: combine SupCon backbone with hard negatives in Phase 2; or increase Phase 1 toxic_mult to push toxic clusters further from edible
