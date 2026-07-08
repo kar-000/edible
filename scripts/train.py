@@ -53,6 +53,11 @@ def main() -> None:
         "--hard-negatives", type=Path, default=None,
         help="JSON file from mine_hard_negatives.py; boosts sampling of known FP images",
     )
+    parser.add_argument(
+        "--pretrained-backbone", type=Path, default=None,
+        help="Path to supcon_backbone.pt from scripts/pretrain.py; "
+             "loads backbone weights before fine-tuning",
+    )
     args = parser.parse_args()
 
     hard_negatives: dict = {}
@@ -78,6 +83,7 @@ def main() -> None:
         cutmix_alpha=args.cutmix_alpha,
         balanced_sampling=args.balanced_sampling,
         hard_negatives=hard_negatives,
+        pretrained_backbone_path=args.pretrained_backbone,
     )
 
     loss_name = "ASL" if args.asl else "WeightedCE"
@@ -90,6 +96,8 @@ def main() -> None:
         extras.append(f"label_smoothing={args.label_smoothing}")
     if hard_negatives:
         extras.append(f"hard_negatives={len(hard_negatives)}")
+    if args.pretrained_backbone and args.pretrained_backbone.exists():
+        extras.append(f"supcon_backbone={args.pretrained_backbone.name}")
     extra_str = ("  " + "  ".join(extras)) if extras else ""
     print(f"loss={loss_name}  lr={args.lr}  toxic_mult={args.toxic_mult}x  "
           f"patience={args.patience}{extra_str}")

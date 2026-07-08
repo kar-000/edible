@@ -254,6 +254,118 @@ class AsymmetricLoss(nn.Module):
         return sample_loss.mean()
 
 
+class ProjectionHead(nn.Module):
+    """
+    2-layer MLP projection head for SupCon pre-training.
+
+    Maps backbone features → a unit-norm embedding in a low-dimensional
+    space where the contrastive loss operates.  The head is discarded after
+    pre-training; only the backbone weights are kept.
+
+    Architecture: Linear(num_features, hidden_dim) → BN → ReLU
+                  → Linear(hidden_dim, out_dim) → L2-normalise
+    """
+
+    def __init__(
+        self,
+        num_features: int,
+        hidden_dim: int = 256,
+        out_dim: int = 128,
+    ) -> None:
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(num_features, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_dim, out_dim),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Return L2-normalised projections, shape ``(B, out_dim)``."""
+        return F.normalize(self.net(x), dim=1)
+
+
+class SupConLoss(nn.Module):
+    """
+    Supervised Contrastive Loss (Khosla et al., NeurIPS 2020).
+
+    For a batch of embeddings, pulls same-class embeddings together while
+    pushing all other-class embeddings away.
+
+    Parameters
+    ----------
+    temperature:
+        Logit scale divisor τ.  Smaller τ sharpens the distribution; the
+        original paper uses 0.07 for ImageNet-scale work.
+    toxic_indices:
+        If set, toxic-class anchors receive additional loss weight
+        (``toxic_multiplier``), amplifying the safety-critical contrastive signal.
+    toxic_multiplier:
+        Scale factor applied to toxic-anchor loss terms.
+    """
+
+    def __init__(
+        self,
+        temperature: float = 0.07,
+        toxic_indices: Optional[set[int]] = None,
+        toxic_multiplier: float = 2.0,
+    ) -> None:
+        super().__init__()
+        self.temperature = temperature
+        self.toxic_indices = toxic_indices or set()
+        self.toxic_multiplier = toxic_multiplier
+
+    def forward(
+        self,
+        features: torch.Tensor,
+        labels: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Parameters
+        ----------
+        features:
+            L2-normalised embeddings, shape ``(B, D)``.
+        labels:
+            Integer class labels, shape ``(B,)``.
+
+        Returns
+        -------
+        Scalar loss.
+        """
+        B = features.shape[0]
+        device = features.device
+
+        # Cosine similarity matrix (B, B)
+        sim = torch.matmul(features, features.T) / self.temperature
+
+        # Positive mask: same-class pairs, excluding self
+        labels_col = labels.unsqueeze(1)
+        labels_row = labels.unsqueeze(0)
+        pos_mask = (labels_col == labels_row).float()
+        pos_mask.fill_diagonal_(0.0)
+
+        # Exclude self from softmax denominator
+        self_mask = torch.eye(B, device=device)
+        sim_no_self = sim - 1e9 * self_mask
+
+        # log-softmax over all non-self entries, then weight by positives
+        log_prob = sim_no_self - torch.logsumexp(sim_no_self, dim=1, keepdim=True)
+        num_pos = pos_mask.sum(dim=1).clamp(min=1.0)
+        per_anchor = -(pos_mask * log_prob).sum(dim=1) / num_pos  # (B,)
+
+        # Toxic-anchor upweighting
+        if self.toxic_indices:
+            is_toxic = torch.tensor(
+                [int(lbl) in self.toxic_indices for lbl in labels.tolist()],
+                device=device, dtype=torch.float32,
+            )
+            per_anchor = per_anchor * (1.0 + (self.toxic_multiplier - 1.0) * is_toxic)
+
+        # Anchors with no in-batch positives contribute zero loss
+        has_pos = (pos_mask.sum(dim=1) > 0).float()
+        return (per_anchor * has_pos).sum() / has_pos.sum().clamp(min=1.0)
+
+
 def build_loss(
     class_weights: Optional[torch.Tensor] = None,
     toxic_indices: Optional[set[int]] = None,
