@@ -202,8 +202,13 @@ def main() -> None:
     toxic_indices = val_ds.toxic_class_indices()
     species_ids = val_ds.species_ids()
 
-    ckpt = torch.load(args.checkpoint, map_location=device)
-    cfg = ClassifierConfig(num_classes=num_classes)
+    ckpt = torch.load(args.checkpoint, map_location=device, weights_only=True)
+    cfg = ClassifierConfig(
+        num_classes=num_classes,
+        model_name=ckpt.get("model_name", "efficientnet_b0"),
+        img_size=ckpt.get("img_size", None),
+        freeze_backbone=ckpt.get("freeze_backbone", False),
+    )
     model = build_classifier(cfg).to(device)
     model.load_state_dict(ckpt["model_state_dict"])
 

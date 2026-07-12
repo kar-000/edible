@@ -125,11 +125,10 @@ All runs: EfficientNet-B0, AdamW, cosine annealing LR, early stop on val toxic F
 
 ## Current Best Model
 
-**Run K best_safety + calibration** (as of 2026-07-12):
-- Run O (SupCon 150 epochs, toxic_mult=4×) improved the accuracy path: best_accuracy 0.66% FP / 92.6% acc (ties Run L, matches in just 1 Phase 2 epoch). Did not break the 0.33% safety floor.
-- SupCon Phase 1 plateaued at ~epoch 60 with toxic_mult=4× — diminishing returns beyond 75 epochs at this dataset scale.
-- The 0.33% safety floor appears to be a ceiling for EfficientNet-B0 + SupCon on current data. Next lever: DINOv2/ViT backbone or targeted data collection.
-- **Production recommendation**: Run K best_safety for safety-critical path; Run O best_accuracy (0.66% FP, 92.6% acc) for highest-accuracy deployment.
+**Run P best_accuracy (DINOv2 ViT-B/14 frozen) + calibration** (as of 2026-07-12):
+- DINOv2 frozen linear probe broke the EfficientNet-B0 ceiling: 0.33% FP at 97.5% acc and 0.2% rejection — matching K's safety with +10.1pp accuracy and 28× lower rejection rate.
+- Full fine-tune (Run Q) is the next step — expect sub-0.33% FP.
+- **Production recommendation**: Run P best_accuracy for both safety and accuracy paths.
 
 **Run K best_safety + calibration** (as of 2026-07-05):
 - Test acc=87.4% (accepted), toxic_fp=**0.33%**, rejection=5.7%
@@ -150,7 +149,9 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 | **M best_accuracy** ✦SupCon | epoch 16 | **0.99%** (6/604) | **94.1%** | 5.6% | ← **best accuracy** |
 | M best_safety ✦SupCon | epoch 11 | 1.49% (9/604) | 93.6% | 4.7% | best_accuracy safer than best_safety |
 | N best_safety ✦SupCon+HN | epoch 1 | 0.99% (6/604) | 88.2% | 8.4% | hard negatives disrupt SupCon fine-tuning |
-| **O best_accuracy** ✦SupCon150 | epoch 1 | **0.66%** (4/604) | **92.6%** | 8.5% | ← ties L best_accuracy; best_acc safer than best_safety again |
+| **P best_accuracy** ✦DINOv2-frozen | epoch 7 | **0.33%** (2/604) | **97.5%** | 0.2% | ← **new production** — frozen linear probe |
+| P best_safety ✦DINOv2-frozen | epoch 1 | 0.66% (4/604) | 95.2% | 0.0% | no per-class thresholds triggered |
+| **O best_accuracy** ✦SupCon150 | epoch 1 | **0.66%** (4/604) | **92.6%** | 8.5% | ties L best_accuracy; best_acc safer than best_safety again |
 | O best_safety ✦SupCon150 | epoch 3 | 0.83% (5/604) | 89.6% | 11.2% | high rejection; best_accuracy is better choice |
 | J best_accuracy | epoch 8 | 1.82% (11/604) | 91.7% | 3.0% | |
 | I best_accuracy | epoch 8 | 1.82% (10/548) | 88.7% | 7.0% | |
@@ -234,6 +235,20 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 - **Pattern:** best_accuracy (0.66% FP) is safer than best_safety (0.83%) post-calibration — same counterintuitive result as Run M. Epoch 1's better-organized feature space allows tighter calibration thresholds.
 - **Conclusion:** Longer Phase 1 improved over Run M on accuracy path (0.66% vs 0.99%) but did not break the 0.33% safety ceiling. Run K best_safety remains production. The safety floor likely requires a different approach: better data or a stronger backbone foundation (DINOv2/ViT).
 
+### Run P — DINOv2 ViT-B/14 frozen backbone + ASL linear probe, dataset v2.1 ✅ new production
+- **Hypothesis:** DINOv2 pretrained features (142M images, DINO self-supervised) intrinsically encode species-level discrimination; test with frozen backbone before investing in full fine-tune
+- **Config:** model=vit_base_patch14_dinov2, freeze_backbone=True, img_size=224, toxic_mult=3×, lr=5e-4, patience=7, ASL γ-=2, label_smoothing=0.1, no hard negatives, no SupCon
+- **Trainable params:** 9,228 (head only: Linear(768→12) + bias); backbone: 85.8M frozen
+- **Epoch 1: val_acc=0.948, val_toxic_fp=0.000%** — ZERO val toxic FPs from a linear head on epoch 1
+- **Stopped:** epoch 8 (patience=7), best_safety epoch 1, best_accuracy epoch 7
+- **best_safety:** epoch 1, val_acc=0.948, val_toxic_fp=0.000%
+  - Calibration: T=0.573, toxic_fp=**0.66%** (4/604), acc=**95.2%**, rejection=**0%** (no per-class thresholds triggered)
+  - Calibration saved → `checkpoints/run_p/calibration.json`
+- **best_accuracy:** epoch 7, val_acc=0.974, val_toxic_fp=0.17%
+  - Calibration: T=0.671, toxic_fp=**0.33%** (2/604), acc=**97.5%**, rejection=**0.2%** (only celtis_laevigata θ=0.585)
+- **Comparison to Run K best_safety (previous production):** same 0.33% FP, but +10.1pp accuracy (97.5% vs 87.4%) and rejection 0.2% vs 5.7% (28× lower)
+- **Conclusion:** DINOv2 pretrained features trivially encode the toxic/edible separation that took 15+ EfficientNet-B0 experiments to approach. Full fine-tune (Run Q) should push FP below 0.33% while maintaining near-97% accuracy. **Run P best_accuracy is new production checkpoint.**
+
 ---
 
 ## Pending Investigations
@@ -251,4 +266,5 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 - [x] Run M (SupCon): Phase 1 contrastive pre-training (20 epochs, τ=0.07, toxic_mult=2×) → Phase 2 ASL fine-tune → best_accuracy 94.1% (new high), toxic FP 0.99%; safety floor 1.49% (did not beat K)
 - [x] Run N (SupCon+HN): SupCon backbone + hard negatives → destabilized training, early stop ep8, 0.99% FP; hard negatives from weaker model don't compose with stronger backbone
 - [x] Run O (SupCon150): Phase 1 150 epochs + toxic_mult=4× → 0.66% FP, 92.6% acc; best_accuracy ties L; safety floor still 0.33% (K); Phase 1 loss plateaued ~epoch 60 suggesting diminishing returns beyond 75 epochs at this scale
-- [ ] Options for next step: (a) targeted data collection for species causing persistent test-set FPs, (b) DINOv2/ViT backbone swap (FungiCLEF 2024 recommendation for fine-grained toxic classification), (c) shift focus to app UX
+- [x] Run P (DINOv2 frozen): ViT-B/14 linear probe → 0.33% FP at 97.5% acc / 0.2% rejection; matches K safety, +10.1pp accuracy, 28× lower rejection; NEW PRODUCTION
+- [ ] Run Q: DINOv2 ViT-B/14 full fine-tune (low LR for backbone, standard for head); target sub-0.33% FP

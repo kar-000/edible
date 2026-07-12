@@ -321,7 +321,7 @@ def train(cfg: TrainConfig) -> list[EpochResult]:
         # Checkpoint: best accuracy
         if cfg.save_best_accuracy and val_metrics.overall_accuracy > best_val_acc:
             best_val_acc = val_metrics.overall_accuracy
-            _save_checkpoint(model, cfg.checkpoint_dir / "best_accuracy.pt", epoch, val_metrics)
+            _save_checkpoint(model, cfg.checkpoint_dir / "best_accuracy.pt", epoch, val_metrics, cfg.classifier_config)
 
         # Checkpoint: best toxic FP rate
         if cfg.save_best_toxic_fp:
@@ -330,7 +330,7 @@ def train(cfg: TrainConfig) -> list[EpochResult]:
                 best_toxic_fp = val_metrics.toxic_fp_rate
                 toxic_fp_no_improve = 0
                 _save_checkpoint(
-                    model, cfg.checkpoint_dir / "best_safety.pt", epoch, val_metrics
+                    model, cfg.checkpoint_dir / "best_safety.pt", epoch, val_metrics, cfg.classifier_config
                 )
             else:
                 toxic_fp_no_improve += 1
@@ -349,16 +349,19 @@ def _save_checkpoint(
     path: Path,
     epoch: int,
     metrics: SafetyMetrics,
+    classifier_config: "ClassifierConfig | None" = None,
 ) -> None:
-    torch.save(
-        {
-            "epoch": epoch,
-            "model_state_dict": model.state_dict(),
-            "val_accuracy": metrics.overall_accuracy,
-            "toxic_fp_rate": metrics.toxic_fp_rate,
-        },
-        path,
-    )
+    payload: dict = {
+        "epoch": epoch,
+        "model_state_dict": model.state_dict(),
+        "val_accuracy": metrics.overall_accuracy,
+        "toxic_fp_rate": metrics.toxic_fp_rate,
+    }
+    if classifier_config is not None:
+        payload["model_name"] = classifier_config.model_name
+        payload["img_size"] = classifier_config.img_size
+        payload["freeze_backbone"] = classifier_config.freeze_backbone
+    torch.save(payload, path)
     print(
         f"  Saved checkpoint → {path.name}  "
         f"(acc={metrics.overall_accuracy:.3f}, toxic_fp={metrics.toxic_fp_rate:.4f})"

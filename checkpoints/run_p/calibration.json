@@ -1,0 +1,5 @@
+{
+  "checkpoint": "checkpoints/run_p/best_safety.pt",
+  "temperature": 0.573024,
+  "thresholds": {}
+}

@@ -38,6 +38,13 @@ class ClassifierConfig:
     dropout: float = 0.3
     confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD
 
+    # When True, backbone weights are frozen (linear probe / feature extraction mode).
+    freeze_backbone: bool = False
+
+    # Override input image size passed to timm.create_model.
+    # Required for DINOv2/ViT models whose default is 518×518 but our pipeline uses 224×224.
+    img_size: Optional[int] = None
+
     # Toxic-aware loss: if set, the weight applied to toxic classes in
     # CrossEntropyLoss.  None means use class-frequency weights from dataset.
     toxic_loss_multiplier: Optional[float] = 2.0
@@ -156,12 +163,16 @@ def build_classifier(config: ClassifierConfig) -> EdibleClassifier:
 
     The backbone's original classification head is removed; a fresh
     dropout + linear head for *num_classes* is attached.
+    When ``config.freeze_backbone`` is True all backbone parameters are
+    frozen (linear-probe / feature-extraction mode).
     """
-    backbone = timm.create_model(
-        config.model_name,
-        pretrained=config.pretrained,
-        num_classes=0,  # remove classifier head
-    )
+    create_kwargs: dict = {"pretrained": config.pretrained, "num_classes": 0}
+    if config.img_size is not None:
+        create_kwargs["img_size"] = config.img_size
+    backbone = timm.create_model(config.model_name, **create_kwargs)
+    if config.freeze_backbone:
+        for param in backbone.parameters():
+            param.requires_grad_(False)
     num_features = backbone.num_features
     return EdibleClassifier(
         backbone=backbone,

@@ -25,6 +25,10 @@ CHECKPOINT_DIR = Path(__file__).parent.parent / "checkpoints"
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train Edible species classifier")
     parser.add_argument("--checkpoint-dir", type=Path, default=CHECKPOINT_DIR)
+    parser.add_argument("--model-name", type=str, default="efficientnet_b0",
+                        help="timm model name (default: efficientnet_b0)")
+    parser.add_argument("--freeze-backbone", action="store_true",
+                        help="Freeze backbone weights; train classification head only (linear probe)")
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--lr", type=float, default=5e-4)
     parser.add_argument("--toxic-mult", type=float, default=3.0)
@@ -70,6 +74,9 @@ def main() -> None:
         images_dir=DATA_DIR / "images",
         species_db_path=DATA_DIR / "species.json",
         classifier_config=ClassifierConfig(
+            model_name=args.model_name,
+            freeze_backbone=args.freeze_backbone,
+            img_size=224 if "dinov2" in args.model_name or "vit_" in args.model_name else None,
             toxic_loss_multiplier=args.toxic_mult,
             use_asl=args.asl,
             asl_gamma_neg=args.asl_gamma_neg,
@@ -87,7 +94,11 @@ def main() -> None:
     )
 
     loss_name = "ASL" if args.asl else "WeightedCE"
-    extras = []
+    extras: list[str] = []
+    if args.model_name != "efficientnet_b0":
+        extras.append(f"model={args.model_name}")
+    if args.freeze_backbone:
+        extras.append("freeze_backbone=True")
     if args.cutmix:
         extras.append(f"cutmix_prob={args.cutmix_prob}  cutmix_alpha={args.cutmix_alpha}")
     if args.balanced_sampling:
