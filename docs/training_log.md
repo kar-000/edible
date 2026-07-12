@@ -125,10 +125,11 @@ All runs: EfficientNet-B0, AdamW, cosine annealing LR, early stop on val toxic F
 
 ## Current Best Model
 
-**Run K best_safety + calibration** (as of 2026-07-07):
-- Run M (SupCon) pushed accuracy to a new high (94.1% accepted acc) but did not beat Run K on safety (0.99–1.49% FP vs 0.33%).
-- SupCon succeeds at class separation / accuracy; the toxic safety floor requires a different lever (hard negatives, more data, or higher toxic_mult in Phase 1).
-- **Production recommendation**: Run K best_safety for safety-critical path; Run M best_accuracy for highest-accuracy deployment.
+**Run K best_safety + calibration** (as of 2026-07-12):
+- Run O (SupCon 150 epochs, toxic_mult=4×) improved the accuracy path: best_accuracy 0.66% FP / 92.6% acc (ties Run L, matches in just 1 Phase 2 epoch). Did not break the 0.33% safety floor.
+- SupCon Phase 1 plateaued at ~epoch 60 with toxic_mult=4× — diminishing returns beyond 75 epochs at this dataset scale.
+- The 0.33% safety floor appears to be a ceiling for EfficientNet-B0 + SupCon on current data. Next lever: DINOv2/ViT backbone or targeted data collection.
+- **Production recommendation**: Run K best_safety for safety-critical path; Run O best_accuracy (0.66% FP, 92.6% acc) for highest-accuracy deployment.
 
 **Run K best_safety + calibration** (as of 2026-07-05):
 - Test acc=87.4% (accepted), toxic_fp=**0.33%**, rejection=5.7%
@@ -149,6 +150,8 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 | **M best_accuracy** ✦SupCon | epoch 16 | **0.99%** (6/604) | **94.1%** | 5.6% | ← **best accuracy** |
 | M best_safety ✦SupCon | epoch 11 | 1.49% (9/604) | 93.6% | 4.7% | best_accuracy safer than best_safety |
 | N best_safety ✦SupCon+HN | epoch 1 | 0.99% (6/604) | 88.2% | 8.4% | hard negatives disrupt SupCon fine-tuning |
+| **O best_accuracy** ✦SupCon150 | epoch 1 | **0.66%** (4/604) | **92.6%** | 8.5% | ← ties L best_accuracy; best_acc safer than best_safety again |
+| O best_safety ✦SupCon150 | epoch 3 | 0.83% (5/604) | 89.6% | 11.2% | high rejection; best_accuracy is better choice |
 | J best_accuracy | epoch 8 | 1.82% (11/604) | 91.7% | 3.0% | |
 | I best_accuracy | epoch 8 | 1.82% (10/548) | 88.7% | 7.0% | |
 | G best_safety | epoch 4 | 1.28% | ? | ? | CutMix only (old dataset eval) |
@@ -214,6 +217,23 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 - **Diagnosis:** SupCon backbone (0 train FPs) makes Run L hard negatives non-hard — the model already separates them. Upsampling these images adds noise to Phase 2 and destabilizes fine-tuning, causing early stop at epoch 8 vs Run M's epoch 18. Safety is 3× worse than Run K (0.99% vs 0.33%) and accuracy is 5.9pp below Run M best_accuracy (88.2% vs 94.1%).
 - **Conclusion:** Hard negatives sourced from a weaker model cannot be reused with a stronger backbone. The two techniques compete for the same fine-tuning signal; they do not compose.
 
+### Run O — SupCon Phase 1 (150 epochs, toxic_mult=4×) + ASL Phase 2, dataset v2.1
+- **Hypothesis:** Phase 1 heavily underbaked in Run M (20 of recommended 200 epochs); 150 epochs + harder toxic_mult should push toxic clusters further in embedding space
+- **Phase 1 config:** τ=0.07, toxic_mult=**4×**, proj 1280→256→128, batch_size=64, epochs=**150**, lr=1e-3, CosineAnnealingLR
+  - Loss: 8.65 → 4.47 (rapid descent to ~epoch 60, then plateau; 4× toxic_mult changes loss scale vs Run M's 5.13→2.62)
+  - Phase 1 loss plateaued from ~epoch 60 — future runs with this config need only ~75 epochs
+  - Saved → `checkpoints/run_o/supcon_backbone.pt`
+- **Phase 2 config:** identical to Run M (toxic_mult=3×, lr=5e-4, patience=7, ASL γ-=2, label_smoothing=0.1, no hard negatives)
+  - Epoch 1 val_acc=**0.908** (vs 0.883 in Run M) — stronger starting point from better backbone
+  - Stopped: epoch 10 (patience=7), best_safety at epoch 3, best_accuracy at epoch 1
+- **best_safety:** epoch 3, val_acc=0.889, val_toxic_fp=1.90% (lowest raw val FP since Run I)
+  - Calibration: T=1.182, toxic_fp=**0.83%** (5/604), acc=**89.6%**, rejection=11.2%
+  - Calibration saved → `checkpoints/run_o/calibration.json`
+- **best_accuracy:** epoch 1, val_acc=0.908, val_toxic_fp=2.76%
+  - Calibration: T=1.132, toxic_fp=**0.66%** (4/604), acc=**92.6%**, rejection=8.5%
+- **Pattern:** best_accuracy (0.66% FP) is safer than best_safety (0.83%) post-calibration — same counterintuitive result as Run M. Epoch 1's better-organized feature space allows tighter calibration thresholds.
+- **Conclusion:** Longer Phase 1 improved over Run M on accuracy path (0.66% vs 0.99%) but did not break the 0.33% safety ceiling. Run K best_safety remains production. The safety floor likely requires a different approach: better data or a stronger backbone foundation (DINOv2/ViT).
+
 ---
 
 ## Pending Investigations
@@ -230,4 +250,5 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 - [x] Run L: hard negatives from K → safety plateaued (0.50%), but best_accuracy hit 92.7% (best ever)
 - [x] Run M (SupCon): Phase 1 contrastive pre-training (20 epochs, τ=0.07, toxic_mult=2×) → Phase 2 ASL fine-tune → best_accuracy 94.1% (new high), toxic FP 0.99%; safety floor 1.49% (did not beat K)
 - [x] Run N (SupCon+HN): SupCon backbone + hard negatives → destabilized training, early stop ep8, 0.99% FP; hard negatives from weaker model don't compose with stronger backbone
-- [ ] Options for next safety push: (a) targeted data collection for toxic species causing test-set FPs, (b) stronger SupCon Phase 1 (toxic_mult=4–5×, 30–40 epochs), (c) shift focus to app UX
+- [x] Run O (SupCon150): Phase 1 150 epochs + toxic_mult=4× → 0.66% FP, 92.6% acc; best_accuracy ties L; safety floor still 0.33% (K); Phase 1 loss plateaued ~epoch 60 suggesting diminishing returns beyond 75 epochs at this scale
+- [ ] Options for next step: (a) targeted data collection for species causing persistent test-set FPs, (b) DINOv2/ViT backbone swap (FungiCLEF 2024 recommendation for fine-grained toxic classification), (c) shift focus to app UX
