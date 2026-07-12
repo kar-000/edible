@@ -149,10 +149,10 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 | **M best_accuracy** ✦SupCon | epoch 16 | **0.99%** (6/604) | **94.1%** | 5.6% | ← **best accuracy** |
 | M best_safety ✦SupCon | epoch 11 | 1.49% (9/604) | 93.6% | 4.7% | best_accuracy safer than best_safety |
 | N best_safety ✦SupCon+HN | epoch 1 | 0.99% (6/604) | 88.2% | 8.4% | hard negatives disrupt SupCon fine-tuning |
-| **R best_safety** ✦DINOv2-ft | epoch 1 | **0.17%** (1/604) | **96.2%** | 0.3% | ← **new production (safety)** — stage-2 fine-tune |
-| **R best_accuracy** ✦DINOv2-ft | epoch 6 | **0.33%** (2/604) | **98.0%** | 0.6% | ← **new production (accuracy)** |
-| P best_accuracy ✦DINOv2-frozen | epoch 7 | 0.33% (2/604) | 97.5% | 0.2% | frozen linear probe |
-| P best_safety ✦DINOv2-frozen | epoch 1 | 0.66% (4/604) | 95.2% | 0.0% | no per-class thresholds triggered |
+| **R best_safety** ✦DINOv2-ft | epoch 1 | **0.00%** (0/604) | **96.3%** | 1.7% | ← **new production (safety)** — zero test-set FPs |
+| **R best_accuracy** ✦DINOv2-ft | epoch 6 | **0.17%** (1/604) | **98.2%** | 1.9% | ← **new production (accuracy)** |
+| P best_accuracy ✦DINOv2-frozen | epoch 7 | 0.33% (2/604) | 97.5% | 1.4% | frozen linear probe |
+| P best_safety ✦DINOv2-frozen | epoch 1 | 0.66% (4/604) | 95.2% | 1.4% | |
 | **O best_accuracy** ✦SupCon150 | epoch 1 | **0.66%** (4/604) | **92.6%** | 8.5% | ties L best_accuracy; best_acc safer than best_safety again |
 | O best_safety ✦SupCon150 | epoch 3 | 0.83% (5/604) | 89.6% | 11.2% | high rejection; best_accuracy is better choice |
 | J best_accuracy | epoch 8 | 1.82% (11/604) | 91.7% | 3.0% | |

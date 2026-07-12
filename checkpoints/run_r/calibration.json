@@ -2,6 +2,11 @@
   "checkpoint": "checkpoints/run_r/best_safety.pt",
   "temperature": 0.803263,
   "thresholds": {
-    "vitis_mustangensis": 0.568512
+    "callicarpa_americana": 0.75,
+    "celtis_laevigata": 0.75,
+    "mahonia_trifoliolata": 0.75,
+    "rubus_trivialis": 0.75,
+    "sambucus_canadensis": 0.75,
+    "vitis_mustangensis": 0.75
   }
 }

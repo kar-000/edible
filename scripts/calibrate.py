@@ -30,7 +30,11 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from edible.model.classifier import ClassifierConfig, build_classifier
+from edible.model.classifier import (
+    DEFAULT_CONFIDENCE_THRESHOLD as DEFAULT_CONFIDENCE_FLOOR,
+    ClassifierConfig,
+    build_classifier,
+)
 from edible.model.dataset import EdibleDataset
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -76,18 +80,27 @@ def find_per_class_thresholds(
     For every edible class c, find the minimum confidence threshold such that
     no toxic sample predicted as c on the val set passes through.
 
-    Returns a (C,) array of thresholds (0.0 = no threshold for that class).
+    Edible classes with no val toxic FPs default to DEFAULT_CONFIDENCE_FLOOR
+    (matching inference.py's fallback).  Toxic class thresholds stay at 0.0
+    (low-confidence toxic predictions are conservative — always accept).
+
+    Returns a (C,) array of thresholds.
     """
     edible_indices = set(range(num_classes)) - toxic_indices
     thresholds = np.zeros(num_classes)
+
+    # Seed all edible classes with the global confidence floor so the
+    # evaluation matches inference.py's DEFAULT_CONFIDENCE_FLOOR fallback.
+    for c in edible_indices:
+        thresholds[c] = DEFAULT_CONFIDENCE_FLOOR
 
     for c in edible_indices:
         # Val samples where model predicted class c AND ground truth is toxic
         mask = (preds == c) & np.array([l in toxic_indices for l in labels])
         if not mask.any():
-            continue  # no toxic FPs for this class on val → no threshold needed
+            continue  # floor is sufficient; no class-specific raise needed
         # Raise threshold just above the highest-confidence toxic intruder
-        thresholds[c] = float(probs[mask, c].max()) + eps
+        thresholds[c] = max(float(probs[mask, c].max()) + eps, DEFAULT_CONFIDENCE_FLOOR)
 
     return thresholds
 
