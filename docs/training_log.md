@@ -148,6 +148,7 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 | K best_accuracy | epoch 9 | 1.16% (7/604) | 89.6% | 6.4% | |
 | **M best_accuracy** ✦SupCon | epoch 16 | **0.99%** (6/604) | **94.1%** | 5.6% | ← **best accuracy** |
 | M best_safety ✦SupCon | epoch 11 | 1.49% (9/604) | 93.6% | 4.7% | best_accuracy safer than best_safety |
+| N best_safety ✦SupCon+HN | epoch 1 | 0.99% (6/604) | 88.2% | 8.4% | hard negatives disrupt SupCon fine-tuning |
 | J best_accuracy | epoch 8 | 1.82% (11/604) | 91.7% | 3.0% | |
 | I best_accuracy | epoch 8 | 1.82% (10/548) | 88.7% | 7.0% | |
 | G best_safety | epoch 4 | 1.28% | ? | ? | CutMix only (old dataset eval) |
@@ -202,6 +203,17 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
   - Calibration: T=1.149, toxic_fp=**0.99%** (6/604), acc=**94.1%**, rejection=5.6%
 - **Notes:** SupCon dramatically improved accuracy (+6.7pp vs K best_safety: 94.1% vs 87.4%) and pushed uncalibrated accuracy to 92.6% at epoch 1. However, toxic FP on the safety path went UP (1.49% vs K's 0.33%) — SupCon improves general class separation but the toxic safety floor needs targeted techniques. Unusual: best_accuracy (0.99% FP) is safer than best_safety (1.49%) post-calibration; the well-trained feature space allows tighter thresholds at epoch 16. Run K best_safety remains production for safety-critical deployment. Run M best_accuracy is the highest-accuracy checkpoint produced. Next: SupCon + hard negatives combined, or higher Phase 1 toxic_mult.
 
+### Run N — SupCon Phase 1 backbone (from M) + ASL Phase 2 + hard negatives from Run L (20 samples)
+- **Hypothesis:** SupCon backbone + hard negatives = best of both worlds
+- **Config:** toxic_mult=3×, lr=5e-4, patience=7, loss=ASL(γ+=1, γ-=2, margin=0.05), label_smoothing=0.1, hard_negatives=20, supcon_backbone=checkpoints/run_m/supcon_backbone.pt
+- **Hard negative origin (mined from K):** same 20 entries as Run L
+- **Note:** Run M best_safety had 0 training FPs, so `mine_hard_negatives.py` returned 0 entries for Run N; Run L hard negatives were reused
+- **Stopped:** epoch 8 (patience=7), best_safety at epoch 1 (val_toxic_fp=3.11%), best_accuracy at epoch 2 (val_acc=0.886)
+- **best_safety:** epoch 1, val_acc=0.868, val_toxic_fp=3.11%
+  - Calibration: T=1.0 (estimated), toxic_fp=**0.99%** (6/604), acc=**88.2%**, rejection=8.4%
+- **Diagnosis:** SupCon backbone (0 train FPs) makes Run L hard negatives non-hard — the model already separates them. Upsampling these images adds noise to Phase 2 and destabilizes fine-tuning, causing early stop at epoch 8 vs Run M's epoch 18. Safety is 3× worse than Run K (0.99% vs 0.33%) and accuracy is 5.9pp below Run M best_accuracy (88.2% vs 94.1%).
+- **Conclusion:** Hard negatives sourced from a weaker model cannot be reused with a stronger backbone. The two techniques compete for the same fine-tuning signal; they do not compose.
+
 ---
 
 ## Pending Investigations
@@ -217,4 +229,5 @@ Run scorecard (calibrated toxic FP, all evaluated on v2.1 dataset):
 - [x] GPS location re-ranking: implemented; CountyRangeChecker + NominatimGeocoder; county_range.json built for all 12 TX species
 - [x] Run L: hard negatives from K → safety plateaued (0.50%), but best_accuracy hit 92.7% (best ever)
 - [x] Run M (SupCon): Phase 1 contrastive pre-training (20 epochs, τ=0.07, toxic_mult=2×) → Phase 2 ASL fine-tune → best_accuracy 94.1% (new high), toxic FP 0.99%; safety floor 1.49% (did not beat K)
-- [ ] SupCon v2: combine SupCon backbone with hard negatives in Phase 2; or increase Phase 1 toxic_mult to push toxic clusters further from edible
+- [x] Run N (SupCon+HN): SupCon backbone + hard negatives → destabilized training, early stop ep8, 0.99% FP; hard negatives from weaker model don't compose with stronger backbone
+- [ ] Options for next safety push: (a) targeted data collection for toxic species causing test-set FPs, (b) stronger SupCon Phase 1 (toxic_mult=4–5×, 30–40 epochs), (c) shift focus to app UX

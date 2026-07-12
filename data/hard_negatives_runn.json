@@ -1,0 +1,10 @@
+{
+  "checkpoint": "checkpoints/run_m/best_safety.pt",
+  "fp_boost": 5.0,
+  "near_miss_boost": 2.0,
+  "counts": {
+    "fps": 0,
+    "near_misses": 0
+  },
+  "samples": {}
+}
