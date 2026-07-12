@@ -29,6 +29,8 @@ def main() -> None:
                         help="timm model name (default: efficientnet_b0)")
     parser.add_argument("--freeze-backbone", action="store_true",
                         help="Freeze backbone weights; train classification head only (linear probe)")
+    parser.add_argument("--backbone-lr-mult", type=float, default=1.0,
+                        help="Backbone LR = lr * this multiplier; <1 for differential fine-tuning (default 1.0)")
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--lr", type=float, default=5e-4)
     parser.add_argument("--toxic-mult", type=float, default=3.0)
@@ -62,6 +64,11 @@ def main() -> None:
         help="Path to supcon_backbone.pt from scripts/pretrain.py; "
              "loads backbone weights before fine-tuning",
     )
+    parser.add_argument(
+        "--warm-start", type=Path, default=None,
+        help="Path to a full checkpoint (.pt); loads backbone+head before training. "
+             "Use with --backbone-lr-mult for stage-2 fine-tuning from a linear probe.",
+    )
     args = parser.parse_args()
 
     hard_negatives: dict = {}
@@ -84,6 +91,7 @@ def main() -> None:
         ),
         epochs=args.epochs,
         learning_rate=args.lr,
+        backbone_lr_multiplier=args.backbone_lr_mult,
         toxic_fp_patience=args.patience,
         checkpoint_dir=args.checkpoint_dir,
         cutmix_prob=args.cutmix_prob if args.cutmix else 0.0,
@@ -91,6 +99,7 @@ def main() -> None:
         balanced_sampling=args.balanced_sampling,
         hard_negatives=hard_negatives,
         pretrained_backbone_path=args.pretrained_backbone,
+        warm_start_path=args.warm_start,
     )
 
     loss_name = "ASL" if args.asl else "WeightedCE"
@@ -99,6 +108,8 @@ def main() -> None:
         extras.append(f"model={args.model_name}")
     if args.freeze_backbone:
         extras.append("freeze_backbone=True")
+    if args.backbone_lr_mult != 1.0:
+        extras.append(f"backbone_lr={args.lr * args.backbone_lr_mult:.0e}")
     if args.cutmix:
         extras.append(f"cutmix_prob={args.cutmix_prob}  cutmix_alpha={args.cutmix_alpha}")
     if args.balanced_sampling:
@@ -109,6 +120,8 @@ def main() -> None:
         extras.append(f"hard_negatives={len(hard_negatives)}")
     if args.pretrained_backbone and args.pretrained_backbone.exists():
         extras.append(f"supcon_backbone={args.pretrained_backbone.name}")
+    if args.warm_start and args.warm_start.exists():
+        extras.append(f"warm_start={args.warm_start.name}")
     extra_str = ("  " + "  ".join(extras)) if extras else ""
     print(f"loss={loss_name}  lr={args.lr}  toxic_mult={args.toxic_mult}x  "
           f"patience={args.patience}{extra_str}")

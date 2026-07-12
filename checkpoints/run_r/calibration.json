@@ -1,0 +1,7 @@
+{
+  "checkpoint": "checkpoints/run_r/best_safety.pt",
+  "temperature": 0.803263,
+  "thresholds": {
+    "vitis_mustangensis": 0.568512
+  }
+}

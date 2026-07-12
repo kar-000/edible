@@ -132,6 +132,10 @@ class TrainConfig:
     toxic_fp_patience: int = 5  # stop if no improvement for N epochs
     toxic_fp_min_delta: float = 0.005  # improvement threshold
 
+    # Differential LR for backbone vs head (used when backbone is not frozen).
+    # backbone LR = learning_rate * backbone_lr_multiplier; 1.0 = same LR for all.
+    backbone_lr_multiplier: float = 1.0
+
     # Intra-class CutMix (toxic species only)
     cutmix_prob: float = 0.0   # 0 = disabled
     cutmix_alpha: float = 1.0  # Beta distribution shape parameter
@@ -147,6 +151,11 @@ class TrainConfig:
     # When set, backbone weights are replaced after build_classifier() is called,
     # giving the fine-tuning loop a contrastively pre-trained feature extractor.
     pretrained_backbone_path: Optional[Path] = None
+
+    # Full-model warm-start: path to a checkpoint (.pt) saved by _save_checkpoint().
+    # Loads the complete model state (backbone + head) before training begins.
+    # Use with backbone_lr_multiplier < 1.0 for stage-2 fine-tuning from a linear probe.
+    warm_start_path: Optional[Path] = None
 
     # Device
     device: Optional[torch.device] = None
@@ -242,6 +251,12 @@ def train(cfg: TrainConfig) -> list[EpochResult]:
         model.backbone.load_state_dict(ckpt["backbone_state_dict"])
         print(f"Loaded SupCon backbone from {cfg.pretrained_backbone_path.name}")
 
+    # Full model warm-start (stage-2 fine-tuning from a linear probe checkpoint)
+    if cfg.warm_start_path and cfg.warm_start_path.exists():
+        ckpt = torch.load(cfg.warm_start_path, map_location=device, weights_only=True)
+        model.load_state_dict(ckpt["model_state_dict"])
+        print(f"Loaded warm-start checkpoint from {cfg.warm_start_path.name}")
+
     cc = cfg.classifier_config
     criterion = build_loss(
         class_weights=class_weights_cpu.to(device),
@@ -255,11 +270,21 @@ def train(cfg: TrainConfig) -> list[EpochResult]:
         label_smoothing=cc.label_smoothing,
     ).to(device)
 
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=cfg.learning_rate,
-        weight_decay=cfg.weight_decay,
-    )
+    if cfg.backbone_lr_multiplier != 1.0 and not cfg.classifier_config.freeze_backbone:
+        optimizer = torch.optim.AdamW(
+            [
+                {"params": model.backbone.parameters(), "lr": cfg.learning_rate * cfg.backbone_lr_multiplier},
+                {"params": list(model.dropout.parameters()) + list(model.head.parameters())},
+            ],
+            lr=cfg.learning_rate,
+            weight_decay=cfg.weight_decay,
+        )
+    else:
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=cfg.learning_rate,
+            weight_decay=cfg.weight_decay,
+        )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=cfg.epochs
     )
