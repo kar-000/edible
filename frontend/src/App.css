@@ -59,6 +59,8 @@ body {
 }
 .gps-btn:hover:not(:disabled) { background: #e0ebe3; }
 .gps-btn:disabled { color: #888; cursor: default; }
+.gps-btn--clear { background: #fdf0f0; border-color: #e0b0b0; color: #a03030; }
+.gps-btn--clear:hover { background: #fae0e0; }
 
 .identify-btn {
   padding: 0.75rem;

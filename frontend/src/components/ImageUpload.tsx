@@ -30,6 +30,12 @@ export function ImageUpload({ onSubmit, disabled }: Props) {
     )
   }
 
+  function clearLocation() {
+    setLat('')
+    setLon('')
+    setGeoState('idle')
+  }
+
   function handleFile(f: File) {
     setFile(f)
     setPreview(URL.createObjectURL(f))
@@ -88,15 +94,26 @@ export function ImageUpload({ onSubmit, disabled }: Props) {
           onChange={(e) => setLon(e.target.value)}
           step="any"
         />
-        <button
-          type="button"
-          className="gps-btn"
-          onClick={requestLocation}
-          disabled={geoState === 'loading'}
-          title="Use my current location"
-        >
-          {geoState === 'loading' ? '…' : geoState === 'error' ? 'Location unavailable' : '📍 Use my location'}
-        </button>
+        {lat && lon ? (
+          <button
+            type="button"
+            className="gps-btn gps-btn--clear"
+            onClick={clearLocation}
+            title="Remove location"
+          >
+            × Remove location
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="gps-btn"
+            onClick={requestLocation}
+            disabled={geoState === 'loading'}
+            title="Use my current location"
+          >
+            {geoState === 'loading' ? '…' : geoState === 'error' ? 'Location unavailable' : '📍 Use my location'}
+          </button>
+        )}
       </div>
 
       <button type="submit" disabled={!file || disabled} className="identify-btn">
