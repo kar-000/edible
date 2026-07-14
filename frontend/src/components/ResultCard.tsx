@@ -6,20 +6,29 @@ import { LookAlikeCard } from './LookAlikeCard'
 const EDIBILITY_LABEL: Record<string, string> = {
   edible_raw: 'Edible raw',
   edible_cooked: 'Edible when cooked',
-  toxic: 'TOXIC',
+  toxic: 'TOXIC — Do not eat',
   uncertain: 'Uncertain',
+}
+
+function confidenceClass(confidence: number): string {
+  if (confidence >= 0.85) return 'confidence-bar--high'
+  if (confidence >= 0.75) return 'confidence-bar--mid'
+  return 'confidence-bar--low'
 }
 
 interface Props {
   result: InferenceResult
+  imageUrl: string
   onReset: () => void
 }
 
-export function ResultCard({ result, onReset }: Props) {
+export function ResultCard({ result, imageUrl, onReset }: Props) {
   const doNotEat = requiresDoNotEatBanner(result)
 
   return (
     <div className="result-card">
+      <img src={imageUrl} alt="Submitted photo" className="result-image" />
+
       {!result.accepted ? (
         <>
           <SafetyBanner variant="danger" message={result.rejection_message} />
@@ -56,7 +65,7 @@ export function ResultCard({ result, onReset }: Props) {
             </div>
             <div className="confidence-bar-wrap">
               <div
-                className="confidence-bar"
+                className={`confidence-bar ${confidenceClass(result.confidence ?? 0)}`}
                 style={{ width: `${Math.round((result.confidence ?? 0) * 100)}%` }}
               />
               <span className="confidence-label">

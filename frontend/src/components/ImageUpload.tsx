@@ -13,6 +13,7 @@ export function ImageUpload({ onSubmit, disabled }: Props) {
   const [lon, setLon] = useState('')
   const [dragging, setDragging] = useState(false)
   const [geoState, setGeoState] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [showManual, setShowManual] = useState(false)
 
   function requestLocation() {
     if (!navigator.geolocation) {
@@ -24,6 +25,7 @@ export function ImageUpload({ onSubmit, disabled }: Props) {
       (pos) => {
         setLat(String(pos.coords.latitude))
         setLon(String(pos.coords.longitude))
+        setShowManual(false)
         setGeoState('idle')
       },
       () => setGeoState('error'),
@@ -56,6 +58,8 @@ export function ImageUpload({ onSubmit, disabled }: Props) {
     onSubmit(file, parsedLat, parsedLon)
   }
 
+  const locationSet = Boolean(lat && lon)
+
   return (
     <form onSubmit={handleSubmit} className="upload-form">
       <div
@@ -79,48 +83,59 @@ export function ImageUpload({ onSubmit, disabled }: Props) {
         onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]) }}
       />
 
-      <div className="gps-row">
-        <input
-          type="number"
-          placeholder="Latitude (optional)"
-          value={lat}
-          onChange={(e) => setLat(e.target.value)}
-          step="any"
-        />
-        <input
-          type="number"
-          placeholder="Longitude (optional)"
-          value={lon}
-          onChange={(e) => setLon(e.target.value)}
-          step="any"
-        />
-        {lat && lon ? (
-          <button
-            type="button"
-            className="gps-btn gps-btn--clear"
-            onClick={clearLocation}
-            title="Remove location"
-          >
-            × Remove location
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="gps-btn"
-            onClick={requestLocation}
-            disabled={geoState === 'loading'}
-            title="Use my current location"
-          >
-            {geoState === 'loading' ? '…' : geoState === 'error' ? 'Location unavailable' : '📍 Use my location'}
-          </button>
-        )}
-      </div>
+      <div className="gps-section">
+        <div className="gps-row">
+          {locationSet ? (
+            <button type="button" className="gps-btn gps-btn--clear" onClick={clearLocation}>
+              × Remove location
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="gps-btn"
+              onClick={requestLocation}
+              disabled={geoState === 'loading'}
+            >
+              {geoState === 'loading' ? '…' : geoState === 'error' ? 'Location unavailable' : '📍 Use my location'}
+            </button>
+          )}
 
-      <p className={`gps-status gps-status--${lat && lon ? 'active' : 'inactive'}`}>
-        {lat && lon
-          ? `📍 Using location (${parseFloat(lat).toFixed(3)}°, ${parseFloat(lon).toFixed(3)}°) — range checking enabled`
-          : 'No location — range checking disabled'}
-      </p>
+          {!locationSet && (
+            <button
+              type="button"
+              className="gps-manual-toggle"
+              onClick={() => setShowManual((v) => !v)}
+            >
+              {showManual ? 'Hide manual entry' : 'Enter manually'}
+            </button>
+          )}
+        </div>
+
+        {showManual && !locationSet && (
+          <div className="gps-manual">
+            <input
+              type="number"
+              placeholder="Latitude"
+              value={lat}
+              onChange={(e) => setLat(e.target.value)}
+              step="any"
+            />
+            <input
+              type="number"
+              placeholder="Longitude"
+              value={lon}
+              onChange={(e) => setLon(e.target.value)}
+              step="any"
+            />
+          </div>
+        )}
+
+        <p className={`gps-status gps-status--${locationSet ? 'active' : 'inactive'}`}>
+          {locationSet
+            ? `📍 Using location (${parseFloat(lat).toFixed(3)}°, ${parseFloat(lon).toFixed(3)}°) — range checking enabled`
+            : 'No location — range checking disabled'}
+        </p>
+      </div>
 
       <button type="submit" disabled={!file || disabled} className="identify-btn">
         {disabled ? 'Identifying…' : 'Identify'}
