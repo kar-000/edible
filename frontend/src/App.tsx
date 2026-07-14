@@ -67,6 +67,16 @@ export function App() {
           <AboutPage />
         ) : (
           <>
+            <div className="disclaimer-banner" role="note">
+              <span className="disclaimer-banner__icon">🌿</span>
+              <div>
+                <strong>Educational tool — not a foraging guide.</strong>
+                {' '}Never eat a wild plant based solely on this app.
+                Misidentification can cause serious illness or death.
+                {' '}<button className="disclaimer-banner__link" onClick={() => navigateTo('about')}>How it works →</button>
+              </div>
+            </div>
+
             {(state.phase === 'idle' || state.phase === 'error') && (
               <ImageUpload onSubmit={handleSubmit} disabled={false} />
             )}

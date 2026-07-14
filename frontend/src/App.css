@@ -68,6 +68,46 @@ body {
 .nav-link--active { background: #4a7c59; color: #fff; font-weight: 600; }
 .nav-link--active:hover { background: #3a6347; }
 
+/* ─── Disclaimer banner ─────────────────────────────────────────── */
+
+.disclaimer-banner {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  background: #fffbef;
+  border: 1px solid #e2c84b;
+  border-left: 4px solid #c9a800;
+  border-radius: 10px;
+  padding: 0.875rem 1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: #3d3000;
+}
+
+.disclaimer-banner__icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+}
+
+.disclaimer-banner strong {
+  font-weight: 700;
+}
+
+.disclaimer-banner__link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #7a5c00;
+  font-weight: 600;
+  font-size: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.disclaimer-banner__link:hover { color: #3d3000; }
+
 /* ─── Upload form ───────────────────────────────────────────────── */
 
 .upload-form { display: flex; flex-direction: column; gap: 1rem; }
