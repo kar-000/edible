@@ -38,14 +38,27 @@ body {
 
 .preview-img { width: 100%; max-height: 320px; object-fit: contain; display: block; }
 
-.gps-row { display: flex; gap: 0.5rem; }
+.gps-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .gps-row input {
   flex: 1;
+  min-width: 0;
   padding: 0.5rem 0.75rem;
   border: 1px solid #ccc;
   border-radius: 8px;
   font-size: 0.9rem;
 }
+.gps-btn {
+  padding: 0.5rem 0.75rem;
+  background: #f0f4f1;
+  color: #333;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.gps-btn:hover:not(:disabled) { background: #e0ebe3; }
+.gps-btn:disabled { color: #888; cursor: default; }
 
 .identify-btn {
   padding: 0.75rem;

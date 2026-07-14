@@ -29,6 +29,12 @@ export function ResultCard({ result, onReset }: Props) {
             {result.rejection_reason === 'low_confidence' && 'The model was not confident enough to make a safe identification.'}
             {result.rejection_reason === 'image_invalid' && 'The image could not be processed.'}
           </p>
+          {result.rejection_reason === 'low_confidence' && result.is_out_of_range && (
+            <SafetyBanner
+              variant="warning"
+              message="This species is not typically found in your area, which may have reduced confidence."
+            />
+          )}
         </>
       ) : (
         <>

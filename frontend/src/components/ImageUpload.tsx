@@ -12,6 +12,23 @@ export function ImageUpload({ onSubmit, disabled }: Props) {
   const [lat, setLat] = useState('')
   const [lon, setLon] = useState('')
   const [dragging, setDragging] = useState(false)
+  const [geoState, setGeoState] = useState<'idle' | 'loading' | 'error'>('idle')
+
+  function requestLocation() {
+    if (!navigator.geolocation) {
+      setGeoState('error')
+      return
+    }
+    setGeoState('loading')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLat(String(pos.coords.latitude))
+        setLon(String(pos.coords.longitude))
+        setGeoState('idle')
+      },
+      () => setGeoState('error'),
+    )
+  }
 
   function handleFile(f: File) {
     setFile(f)
@@ -71,6 +88,15 @@ export function ImageUpload({ onSubmit, disabled }: Props) {
           onChange={(e) => setLon(e.target.value)}
           step="any"
         />
+        <button
+          type="button"
+          className="gps-btn"
+          onClick={requestLocation}
+          disabled={geoState === 'loading'}
+          title="Use my current location"
+        >
+          {geoState === 'loading' ? '…' : geoState === 'error' ? 'Location unavailable' : '📍 Use my location'}
+        </button>
       </div>
 
       <button type="submit" disabled={!file || disabled} className="identify-btn">
