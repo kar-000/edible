@@ -14,6 +14,7 @@ export function ImageUpload({ onSubmit, disabled }: Props) {
   const [dragging, setDragging] = useState(false)
   const [geoState, setGeoState] = useState<'idle' | 'loading' | 'error'>('idle')
   const [showManual, setShowManual] = useState(false)
+  const [gpsActive, setGpsActive] = useState(false)
 
   function requestLocation() {
     if (!navigator.geolocation) {
@@ -27,6 +28,7 @@ export function ImageUpload({ onSubmit, disabled }: Props) {
         setLon(String(pos.coords.longitude))
         setShowManual(false)
         setGeoState('idle')
+        setGpsActive(true)
       },
       () => setGeoState('error'),
     )
@@ -36,6 +38,7 @@ export function ImageUpload({ onSubmit, disabled }: Props) {
     setLat('')
     setLon('')
     setGeoState('idle')
+    setGpsActive(false)
   }
 
   function handleFile(f: File) {
@@ -55,10 +58,16 @@ export function ImageUpload({ onSubmit, disabled }: Props) {
     if (!file) return
     const parsedLat = lat ? parseFloat(lat) : undefined
     const parsedLon = lon ? parseFloat(lon) : undefined
-    onSubmit(file, parsedLat, parsedLon)
+    onSubmit(
+      file,
+      parsedLat !== undefined && !isNaN(parsedLat) ? parsedLat : undefined,
+      parsedLon !== undefined && !isNaN(parsedLon) ? parsedLon : undefined,
+    )
   }
 
-  const locationSet = Boolean(lat && lon)
+  const parsedLatNum = lat ? parseFloat(lat) : NaN
+  const parsedLonNum = lon ? parseFloat(lon) : NaN
+  const hasCoords = !isNaN(parsedLatNum) && !isNaN(parsedLonNum)
 
   return (
     <form onSubmit={handleSubmit} className="upload-form">
@@ -85,7 +94,7 @@ export function ImageUpload({ onSubmit, disabled }: Props) {
 
       <div className="gps-section">
         <div className="gps-row">
-          {locationSet ? (
+          {gpsActive ? (
             <button type="button" className="gps-btn gps-btn--clear" onClick={clearLocation}>
               × Remove location
             </button>
@@ -100,7 +109,7 @@ export function ImageUpload({ onSubmit, disabled }: Props) {
             </button>
           )}
 
-          {!locationSet && (
+          {!gpsActive && (
             <button
               type="button"
               className="gps-manual-toggle"
@@ -111,28 +120,28 @@ export function ImageUpload({ onSubmit, disabled }: Props) {
           )}
         </div>
 
-        {showManual && !locationSet && (
+        {showManual && !gpsActive && (
           <div className="gps-manual">
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               placeholder="Latitude"
               value={lat}
               onChange={(e) => setLat(e.target.value)}
-              step="any"
             />
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               placeholder="Longitude"
               value={lon}
               onChange={(e) => setLon(e.target.value)}
-              step="any"
             />
           </div>
         )}
 
-        <p className={`gps-status gps-status--${locationSet ? 'active' : 'inactive'}`}>
-          {locationSet
-            ? `📍 Using location (${parseFloat(lat).toFixed(3)}°, ${parseFloat(lon).toFixed(3)}°) — range checking enabled`
+        <p className={`gps-status gps-status--${hasCoords ? 'active' : 'inactive'}`}>
+          {hasCoords
+            ? `📍 Using location (${parsedLatNum.toFixed(3)}°, ${parsedLonNum.toFixed(3)}°) — range checking enabled`
             : 'No location — range checking disabled'}
         </p>
       </div>

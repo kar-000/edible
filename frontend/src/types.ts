@@ -33,6 +33,6 @@ export const CONFIDENCE_FLOOR = 0.75
 export function requiresDoNotEatBanner(result: InferenceResult): boolean {
   if (!result.accepted) return true
   if (result.edibility === 'toxic') return true
-  if (result.confidence !== null && result.confidence < CONFIDENCE_FLOOR) return true
+  if (result.confidence === null || result.confidence < CONFIDENCE_FLOOR) return true
   return false
 }
