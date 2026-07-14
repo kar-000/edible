@@ -116,6 +116,12 @@ export function ImageUpload({ onSubmit, disabled }: Props) {
         )}
       </div>
 
+      <p className={`gps-status gps-status--${lat && lon ? 'active' : 'inactive'}`}>
+        {lat && lon
+          ? `📍 Using location (${parseFloat(lat).toFixed(3)}°, ${parseFloat(lon).toFixed(3)}°) — range checking enabled`
+          : 'No location — range checking disabled'}
+      </p>
+
       <button type="submit" disabled={!file || disabled} className="identify-btn">
         {disabled ? 'Identifying…' : 'Identify'}
       </button>

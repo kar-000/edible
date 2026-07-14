@@ -62,6 +62,13 @@ body {
 .gps-btn--clear { background: #fdf0f0; border-color: #e0b0b0; color: #a03030; }
 .gps-btn--clear:hover { background: #fae0e0; }
 
+.gps-status {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+}
+.gps-status--active { color: #3a6347; }
+.gps-status--inactive { color: #888; }
+
 .identify-btn {
   padding: 0.75rem;
   background: #4a7c59;
