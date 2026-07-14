@@ -168,6 +168,23 @@ body {
 }
 .gps-manual input:focus { outline: 2px solid #2B5134; outline-offset: 1px; }
 
+.gps-zip { display: flex; flex-direction: column; gap: 0.35rem; }
+.gps-zip-row { display: flex; align-items: center; gap: 0.5rem; }
+.gps-zip-input {
+  flex: 1;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #C4B89A;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: #FBF8F1;
+  color: #1A1610;
+}
+.gps-zip-input:focus { outline: 2px solid #2B5134; outline-offset: 1px; }
+.gps-zip-spinner { color: #A09070; font-size: 0.9rem; }
+.gps-zip-error { font-size: 0.8rem; color: #9E2A1F; margin: 0; }
+.gps-zip-ok { font-size: 0.8rem; color: #2B5134; margin: 0; }
+
 .gps-status { font-size: 0.8rem; }
 .gps-status--active  { color: #2B5134; }
 .gps-status--inactive { color: #A09070; }

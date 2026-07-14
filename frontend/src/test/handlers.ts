@@ -20,3 +20,18 @@ export const identifyHangs = () =>
     await delay('infinite')
     return HttpResponse.json({})
   })
+
+export const nominatimReturns = (lat: string, lon: string) =>
+  http.get('https://nominatim.openstreetmap.org/search', () =>
+    HttpResponse.json([{ lat, lon, display_name: 'Test City, TX, US' }])
+  )
+
+export const nominatimNotFound = () =>
+  http.get('https://nominatim.openstreetmap.org/search', () =>
+    HttpResponse.json([])
+  )
+
+export const nominatimFails = () =>
+  http.get('https://nominatim.openstreetmap.org/search', () =>
+    HttpResponse.error()
+  )

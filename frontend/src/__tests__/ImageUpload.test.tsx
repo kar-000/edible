@@ -2,6 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ImageUpload } from '../components/ImageUpload'
+import { server } from '../test/server'
+import { nominatimReturns, nominatimNotFound, nominatimFails } from '../test/handlers'
 
 const onSubmit = vi.fn()
 
@@ -172,5 +174,97 @@ describe('manual entry toggle', () => {
     await user.click(screen.getByRole('button', { name: /use my location/i }))
     await waitFor(() => screen.getByRole('button', { name: /remove location/i }))
     expect(screen.queryByRole('button', { name: /enter manually/i })).not.toBeInTheDocument()
+  })
+})
+
+// ─── ZIP code entry ───────────────────────────────────────────────
+
+describe('ZIP code entry', () => {
+  it('shows "Enter ZIP code" button by default', () => {
+    renderUpload()
+    expect(screen.getByRole('button', { name: /enter zip code/i })).toBeInTheDocument()
+  })
+
+  it('shows ZIP input when "Enter ZIP code" is clicked', async () => {
+    const user = userEvent.setup()
+    renderUpload()
+    await user.click(screen.getByRole('button', { name: /enter zip code/i }))
+    expect(screen.getByRole('textbox', { name: /zip code/i })).toBeInTheDocument()
+  })
+
+  it('hides ZIP input when toggled again', async () => {
+    const user = userEvent.setup()
+    renderUpload()
+    await user.click(screen.getByRole('button', { name: /enter zip code/i }))
+    await user.click(screen.getByRole('button', { name: /hide zip entry/i }))
+    expect(screen.queryByRole('textbox', { name: /zip code/i })).not.toBeInTheDocument()
+  })
+
+  it('geocodes a 5-digit ZIP and shows located coordinates', async () => {
+    server.use(nominatimReturns('30.267', '-97.743'))
+    const user = userEvent.setup()
+    renderUpload()
+    await user.click(screen.getByRole('button', { name: /enter zip code/i }))
+    await user.type(screen.getByRole('textbox', { name: /zip code/i }), '78701')
+    await waitFor(() => {
+      expect(screen.getByText(/✓ Located/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows an error when ZIP is not found', async () => {
+    server.use(nominatimNotFound())
+    const user = userEvent.setup()
+    renderUpload()
+    await user.click(screen.getByRole('button', { name: /enter zip code/i }))
+    await user.type(screen.getByRole('textbox', { name: /zip code/i }), '00000')
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/ZIP code not found/i)
+    })
+  })
+
+  it('shows an error when geocoding fails', async () => {
+    server.use(nominatimFails())
+    const user = userEvent.setup()
+    renderUpload()
+    await user.click(screen.getByRole('button', { name: /enter zip code/i }))
+    await user.type(screen.getByRole('textbox', { name: /zip code/i }), '78701')
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/could not look up/i)
+    })
+  })
+
+  it('shows active GPS status after successful ZIP lookup', async () => {
+    server.use(nominatimReturns('30.267', '-97.743'))
+    const user = userEvent.setup()
+    renderUpload()
+    await user.click(screen.getByRole('button', { name: /enter zip code/i }))
+    await user.type(screen.getByRole('textbox', { name: /zip code/i }), '78701')
+    await waitFor(() => {
+      expect(screen.getByText(/using location/i)).toBeInTheDocument()
+    })
+  })
+
+  it('calls onSubmit with geocoded coordinates', async () => {
+    server.use(nominatimReturns('30.267', '-97.743'))
+    const user = userEvent.setup()
+    const { container } = renderUpload()
+    const file = makeFile()
+    await user.upload(container.querySelector('input[type="file"]') as HTMLInputElement, file)
+    await user.click(screen.getByRole('button', { name: /enter zip code/i }))
+    await user.type(screen.getByRole('textbox', { name: /zip code/i }), '78701')
+    await waitFor(() => screen.getByText(/✓ Located/i))
+    await user.click(screen.getByRole('button', { name: /^identify$/i }))
+    expect(onSubmit).toHaveBeenCalledWith(file, 30.267, -97.743)
+  })
+
+  it('hides ZIP entry once GPS location is confirmed', async () => {
+    const user = userEvent.setup()
+    vi.mocked(navigator.geolocation.getCurrentPosition).mockImplementationOnce(
+      (success) => success({ coords: { latitude: 30.267, longitude: -97.743 } } as GeolocationPosition)
+    )
+    renderUpload()
+    await user.click(screen.getByRole('button', { name: /use my location/i }))
+    await waitFor(() => screen.getByRole('button', { name: /remove location/i }))
+    expect(screen.queryByRole('button', { name: /enter zip code/i })).not.toBeInTheDocument()
   })
 })
