@@ -84,10 +84,14 @@ def _build_pipeline() -> InferencePipeline:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Species classifier (EfficientNet-B0)
-    cfg = ClassifierConfig(num_classes=len(sorted_ids))
-    model = build_classifier(cfg).to(device)
     ckpt = torch.load(ckpt_path, map_location=device, weights_only=True)
+    cfg = ClassifierConfig(
+        num_classes=len(sorted_ids),
+        model_name=ckpt.get("model_name", "efficientnet_b0"),
+        img_size=ckpt.get("img_size", 224),
+        freeze_backbone=ckpt.get("freeze_backbone", False),
+    )
+    model = build_classifier(cfg).to(device)
     model.load_state_dict(ckpt["model_state_dict"])
     model.eval()
 
