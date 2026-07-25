@@ -12,14 +12,12 @@ from pathlib import Path
 
 import pytest
 import torch
-import torch.nn as nn
 from PIL import Image
 
 # Make scripts/ importable
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
 
 import mine_hard_negatives as mhn
-
 
 # ---------------------------------------------------------------------------
 # Helpers

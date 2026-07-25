@@ -8,11 +8,11 @@ HTTP errors, unknown species, malformed responses, county checker edge cases.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
-import pytest
 import responses as rsps_lib
 
-from edible.data.range_check import CountyRangeChecker, _PLANTS_BASE, UsdaPlantsClient
+from edible.data.range_check import _PLANTS_BASE, CountyRangeChecker, UsdaPlantsClient
 
 SYMBOL_URL = f"{_PLANTS_BASE}/api/PlantList/TaxonNameSearch/Sambucus canadensis"
 SYMBOL_URL_POKEWEED = f"{_PLANTS_BASE}/api/PlantList/TaxonNameSearch/Phytolacca americana"

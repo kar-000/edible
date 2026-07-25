@@ -12,14 +12,11 @@ Coverage targets:
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 import torch
-import torch.nn as nn
 
 from edible.model.classifier import ProjectionHead, SupConLoss
-
 
 # ---------------------------------------------------------------------------
 # ProjectionHead
@@ -315,8 +312,9 @@ def images_dir(tmp_path, species_db_file):
         sp_dir.mkdir(parents=True)
         for i in range(6):
             # Write minimal valid JPEG bytes
-            from PIL import Image as PILImage
             import io
+
+            from PIL import Image as PILImage
             img = PILImage.new("RGB", (64, 64), color=(i * 40, 100, 150))
             buf = io.BytesIO()
             img.save(buf, format="JPEG")

@@ -273,7 +273,10 @@ def train(cfg: TrainConfig) -> list[EpochResult]:
     if cfg.backbone_lr_multiplier != 1.0 and not cfg.classifier_config.freeze_backbone:
         optimizer = torch.optim.AdamW(
             [
-                {"params": model.backbone.parameters(), "lr": cfg.learning_rate * cfg.backbone_lr_multiplier},
+                {
+                    "params": model.backbone.parameters(),
+                    "lr": cfg.learning_rate * cfg.backbone_lr_multiplier,
+                },
                 {"params": list(model.dropout.parameters()) + list(model.head.parameters())},
             ],
             lr=cfg.learning_rate,
@@ -346,7 +349,13 @@ def train(cfg: TrainConfig) -> list[EpochResult]:
         # Checkpoint: best accuracy
         if cfg.save_best_accuracy and val_metrics.overall_accuracy > best_val_acc:
             best_val_acc = val_metrics.overall_accuracy
-            _save_checkpoint(model, cfg.checkpoint_dir / "best_accuracy.pt", epoch, val_metrics, cfg.classifier_config)
+            _save_checkpoint(
+                model,
+                cfg.checkpoint_dir / "best_accuracy.pt",
+                epoch,
+                val_metrics,
+                cfg.classifier_config,
+            )
 
         # Checkpoint: best toxic FP rate
         if cfg.save_best_toxic_fp:
@@ -355,7 +364,11 @@ def train(cfg: TrainConfig) -> list[EpochResult]:
                 best_toxic_fp = val_metrics.toxic_fp_rate
                 toxic_fp_no_improve = 0
                 _save_checkpoint(
-                    model, cfg.checkpoint_dir / "best_safety.pt", epoch, val_metrics, cfg.classifier_config
+                    model,
+                    cfg.checkpoint_dir / "best_safety.pt",
+                    epoch,
+                    val_metrics,
+                    cfg.classifier_config,
                 )
             else:
                 toxic_fp_no_improve += 1
